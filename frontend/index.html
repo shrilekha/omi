@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Observability Maturity Index</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <div class="logo-wrap">
+    <div class="logo-mark">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 14 L7 8 L10 11 L13 6 L17 10" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="17" cy="10" r="2" fill="#fff"/>
+      </svg>
+    </div>
+    <span class="logo-text">Observability Maturity Index</span>
+  </div>
+  <span class="header-badge">Self-Assessment Tool</span>
+</header>
+
+<!-- SCREEN 1: LANDING -->
+<div id="screen-landing" class="screen active">
+  <div class="hero">
+    <p class="hero-eyebrow">Enterprise &middot; Independent &middot; Free</p>
+    <h1>Where does your organisation stand on the <em>Observability Maturity</em> journey?</h1>
+    <p class="hero-sub">A structured, 20-minute self-assessment for technology and business leaders. Get a scored report, gap analysis, and a clear path forward.</p>
+    <div class="hero-pillars">
+      <span class="pillar-tag">Business &amp; Transaction Observability</span>
+      <span class="pillar-tag">Application Performance</span>
+      <span class="pillar-tag">Infrastructure &amp; Network</span>
+      <span class="pillar-tag">Log Data Lake</span>
+      <span class="pillar-tag">Compliance &amp; Audit Readiness</span>
+    </div>
+    <button class="cta-btn" onclick="goTo('screen-reg')">Start Assessment &rarr;</button>
+  </div>
+
+  <div class="section">
+    <p class="section-label">How it works</p>
+    <h2>Four steps to your maturity score</h2>
+    <div class="steps-row">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <h3>Register</h3>
+        <p>Provide your work email and role. No company name required.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <h3>Assemble your team</h3>
+        <p>Best taken with CTO, Head of SRE, Head of Apps, and Security in the room.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <h3>Answer 25 questions</h3>
+        <p>Five domains, adapted to your sector. Calibrated for senior technology and business leaders.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">4</div>
+        <h3>Get your report</h3>
+        <p>Scored maturity band, gap analysis, domain radar, and a recommendation map.</p>
+      </div>
+    </div>
+
+    <p class="section-label">Assessment domains</p>
+    <h2>Five pillars of modern observability</h2>
+    <div class="domains-grid">
+      <div class="domain-card">
+        <h3>&#x1F4B3; Business &amp; Transaction Observability</h3>
+        <p>End-to-end transaction tracing, business KPI linkage, and IT-to-business RCA speed.</p>
+      </div>
+      <div class="domain-card d-app">
+        <h3>&#x26A1; Application Performance</h3>
+        <p>APM maturity, code-level visibility, synthetic monitoring, and SLO enforcement.</p>
+      </div>
+      <div class="domain-card d-infra">
+        <h3>&#x1F5A5; Infrastructure &amp; Network</h3>
+        <p>Full-stack infrastructure visibility, network path analysis, capacity forecasting.</p>
+      </div>
+      <div class="domain-card d-log">
+        <h3>&#x1F4E6; Log Data Lake</h3>
+        <p>Centralised log collection, retention, query capability, and cost efficiency.</p>
+      </div>
+      <div class="domain-card d-comp">
+        <h3>&#x1F6E1; Compliance &amp; Audit Readiness</h3>
+        <p>Regulatory log mandates, immutable storage, and tamper-proof audit trails.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 2: REGISTRATION -->
+<div id="screen-reg" class="screen">
+  <div class="reg-wrap">
+    <div class="card">
+      <h2>Where should we send your report?</h2>
+      <p class="sub">No company name needed. Your answers are confidential.</p>
+
+      <input type="email" id="reg-email" placeholder="Work email *" style="margin-bottom:0.5rem;">
+      <p class="error-msg" id="err-email">Please use a work email address (not Gmail, Yahoo, or similar).</p>
+
+      <div class="form-row" style="margin-bottom:1.25rem;">
+        <input type="text" id="reg-fname" placeholder="First name" style="margin-bottom:0;">
+        <input type="text" id="reg-lname" placeholder="Last name" style="margin-bottom:0;">
+      </div>
+
+      <p style="font-size:12px;color:#6b7280;margin-bottom:0.6rem;font-weight:600;">Your role *</p>
+      <div class="persona-grid" id="persona-grid">
+        <button class="persona-btn" onclick="selectPersona(this,'CTO / CIO')">CTO / CIO</button>
+        <button class="persona-btn" onclick="selectPersona(this,'Head of SRE')">Head of SRE</button>
+        <button class="persona-btn" onclick="selectPersona(this,'Head of Apps')">Head of Apps</button>
+        <button class="persona-btn" onclick="selectPersona(this,'CISO')">CISO</button>
+        <button class="persona-btn" onclick="selectPersona(this,'Head of Infra')">Head of Infra</button>
+        <button class="persona-btn" onclick="selectPersona(this,'Business Lead')">Business Lead</button>
+        <button class="persona-btn" onclick="selectPersona(this,'Full team')">Full team</button>
+        <button class="persona-btn" onclick="selectPersona(this,'Other')">Other</button>
+      </div>
+      <p class="error-msg" id="err-persona">Please select your role.</p>
+
+      <p style="font-size:12px;color:#6b7280;margin-bottom:0.6rem;font-weight:600;">Sector &amp; Country *</p>
+      <div class="form-row" style="margin-bottom:0.5rem;">
+        <select id="reg-sector" style="margin-bottom:0;">
+          <option value="">Your sector</option>
+          <optgroup label="Financial Services">
+            <option>Private Sector Bank</option>
+            <option>Public Sector Bank</option>
+            <option>NBFC / Fintech</option>
+            <option>Insurance</option>
+            <option>Capital Markets / Exchange</option>
+            <option>Payments &amp; Financial Infrastructure</option>
+          </optgroup>
+          <optgroup label="Industry">
+            <option>Retail &amp; E-commerce</option>
+            <option>Telecom</option>
+            <option>Energy &amp; Utilities</option>
+            <option>Manufacturing &amp; Automotive</option>
+          </optgroup>
+          <optgroup label="Other">
+            <option>IT / Technology</option>
+            <option>Government / PSU</option>
+            <option>Other Enterprise</option>
+          </optgroup>
+        </select>
+        <select id="reg-country" style="margin-bottom:0;">
+          <option value="">Your country</option>
+          <option>India</option>
+          <option>Singapore</option>
+          <option>Middle East</option>
+          <option>United Kingdom</option>
+          <option>United States</option>
+          <option>Australia</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <p class="error-msg" id="err-location">Please select your sector and country.</p>
+
+      <button class="cta-btn" onclick="startAssessment()" style="width:100%;">Begin &rarr;</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 3: ASSESSMENT -->
+<div id="screen-assess" class="screen">
+  <div class="assessment-wrap">
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+    <div class="progress-label">
+      <span id="progress-text">Section 1 of 5</span>
+      <span id="progress-pct">0% complete</span>
+    </div>
+    <div id="q-content"></div>
+    <div id="nav-error" style="display:none;font-size:12.5px;color:var(--magenta-deep);background:var(--magenta-light);border:1px solid rgba(198,6,117,0.2);border-radius:var(--r);padding:8px 14px;margin-top:1.25rem;"></div>
+    <div class="nav-row" id="nav-row">
+      <button class="nav-btn back" id="btn-prev" onclick="prevSection()">&larr; Previous</button>
+      <button class="nav-btn" id="btn-next" onclick="nextSection()">Next section &rarr;</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 4: REPORT -->
+<div id="screen-report" class="screen">
+  <div class="report-wrap" id="report-content">
+    <!-- injected by JS -->
+  </div>
+</div>
+
+<script src="questions.js"></script>
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+var state = {
+  email: '', fname: '', lname: '', persona: '', sector: '', country: '',
+  archetype: 'technology',
+  sessionId: '',
+  section: 0,
+  answers: {},
+  sections: []  // populated by getSections() at start
+};
+
+// ─── NAVIGATION ───────────────────────────────────────────────────────────────
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  try { window.scrollTo(0,0); document.documentElement.scrollTop=0; } catch(e){}
+}
+
+// ─── PERSONA ──────────────────────────────────────────────────────────────────
+function selectPersona(btn, val) {
+  document.querySelectorAll('.persona-btn').forEach(function(b){ b.classList.remove('selected'); });
+  btn.classList.add('selected');
+  state.persona = val;
+}
+
+// ─── EMAIL VALIDATION ─────────────────────────────────────────────────────────
+var _freeDomains = ['gmail','yahoo','hotmail','outlook','rediffmail','ymail','protonmail','icloud','live','msn','aol','zoho'];
+function isBusinessEmail(email) {
+  var parts = email.split('@');
+  if (parts.length !== 2) return false;
+  var domain = parts[1].toLowerCase();
+  // Allow test addresses in development
+  if (domain === 'test.com' || domain === 'example.com' ||
+      window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return true;
+  return !_freeDomains.includes(domain.split('.')[0]);
+}
+
+function _uuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+    var r = Math.random()*16|0, v = c==='x' ? r : (r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+
+// ─── START ────────────────────────────────────────────────────────────────────
+function startAssessment() {
+  var email = document.getElementById('reg-email').value.trim();
+  var valid = true;
+  document.getElementById('err-email').style.display    = 'none';
+  document.getElementById('err-persona').style.display  = 'none';
+  document.getElementById('err-location').style.display = 'none';
+
+  var re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!re.test(email) || !isBusinessEmail(email)) {
+    document.getElementById('err-email').style.display = 'block'; valid = false;
+  }
+  if (!state.persona) {
+    document.getElementById('err-persona').style.display = 'block'; valid = false;
+  }
+  var sector  = document.getElementById('reg-sector').value;
+  var country = document.getElementById('reg-country').value;
+  if (!sector || !country) {
+    document.getElementById('err-location').style.display = 'block'; valid = false;
+  }
+  if (!valid) {
+    var firstErr = document.querySelector('.error-msg[style*="block"]');
+    if (firstErr) firstErr.scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
+
+  var archetype = resolveArchetype(sector, country);
+
+  state.email     = email;
+  state.fname     = document.getElementById('reg-fname').value.trim();
+  state.lname     = document.getElementById('reg-lname').value.trim();
+  state.sector    = sector;
+  state.country   = country;
+  state.archetype = archetype;
+  state.sessionId = _uuid();
+  state.section   = 0;
+  state.answers   = {};
+  state.sections  = getSections(archetype);
+
+  renderSection();
+  goTo('screen-assess');
+}
+
+// ─── ASSESSMENT RENDER ────────────────────────────────────────────────────────
+function renderSection() {
+  var errEl = document.getElementById('nav-error');
+  if (errEl) { errEl.style.display = 'none'; if (errEl._timer) clearTimeout(errEl._timer); }
+  var sections = state.sections;
+  var sec   = sections[state.section];
+  var total = sections.reduce(function(a,s){ return a + s.questions.length; }, 0);
+  var done  = sections.slice(0, state.section).reduce(function(a,s){ return a + s.questions.length; }, 0);
+  var pct   = Math.round((done / total) * 100);
+
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = 'Section ' + (state.section+1) + ' of ' + sections.length + ' — ' + sec.label;
+  document.getElementById('progress-pct').textContent  = pct + '% complete';
+
+  var html = '<div class="section-title-bar ' + sec.color + '">'
+    + '<span class="stb-icon">' + sec.icon + '</span>'
+    + '<div class="stb-info"><h3>' + sec.label + '</h3><p>' + sec.hint + '</p></div>'
+    + '<span class="stb-count">' + sec.questions.length + ' questions</span>'
+    + '</div>';
+
+  sec.questions.forEach(function(q, qi) {
+    html += '<div class="question-block" id="qb-' + q.id + '">';
+    html += '<p class="q-text">Q' + (qi+1) + '. ' + q.text + '</p>';
+    if (q.hint) html += '<p class="q-hint">' + q.hint + '</p>';
+    html += '<div class="options-list">';
+    q.options.forEach(function(opt) {
+      var checked = state.answers[q.id] === opt.score ? 'checked' : '';
+      var chosen  = state.answers[q.id] === opt.score ? 'chosen' : '';
+      html += '<label class="option-label ' + chosen + '" onclick="selectOpt(this)">'
+        + '<input type="radio" name="' + q.id + '" value="' + opt.score + '" ' + checked
+        + ' onchange="recordAnswer(\'' + q.id + '\',' + opt.score + ')">'
+        + opt.text + '</label>';
+    });
+    html += '</div></div>';
+  });
+
+  document.getElementById('q-content').innerHTML = html;
+  document.getElementById('btn-prev').style.visibility = state.section === 0 ? 'hidden' : 'visible';
+  var isLast = state.section === sections.length - 1;
+  var btn = document.getElementById('btn-next');
+  btn.textContent = isLast ? 'Generate my report →' : 'Next section →';
+  btn.className   = isLast ? 'nav-btn finish' : 'nav-btn';
+}
+
+function selectOpt(label) {
+  var block = label.closest('.options-list');
+  block.querySelectorAll('.option-label').forEach(function(l){ l.classList.remove('chosen'); });
+  label.classList.add('chosen');
+}
+
+function recordAnswer(qid, score) { state.answers[qid] = score; }
+
+function _unanswered() {
+  return state.sections[state.section].questions.filter(function(q){ return !(q.id in state.answers); });
+}
+
+function nextSection() {
+  var missing = _unanswered();
+  if (missing.length > 0) {
+    // Show inline error message
+    var errEl = document.getElementById('nav-error');
+    var word = missing.length === 1 ? 'question' : 'questions';
+    errEl.textContent = missing.length + ' ' + word + ' still need' + (missing.length === 1 ? 's' : '') + ' an answer — scroll up to find ' + (missing.length === 1 ? 'it' : 'them') + '.';
+    errEl.style.display = 'block';
+    if (errEl._timer) clearTimeout(errEl._timer);
+    errEl._timer = setTimeout(function(){ errEl.style.display = 'none'; }, 5000);
+    // Scroll to and gently highlight first unanswered question
+    var el = document.getElementById('qb-' + missing[0].id);
+    if (el) {
+      el.scrollIntoView({behavior:'smooth', block:'center'});
+      el.style.outline = '2px solid var(--magenta)';
+      el.style.outlineOffset = '2px';
+      setTimeout(function(){ el.style.outline = ''; el.style.outlineOffset = ''; }, 3000);
+    }
+    return;
+  }
+  if (state.section < state.sections.length - 1) {
+    state.section++;
+    renderSection();
+    try { window.scrollTo(0,0); document.documentElement.scrollTop=0; } catch(e){}
+  } else {
+    generateReport();
+  }
+}
+
+function prevSection() {
+  if (state.section > 0) {
+    state.section--;
+    renderSection();
+    try { window.scrollTo(0,0); document.documentElement.scrollTop=0; } catch(e){}
+  }
+}
+
+// ─── SCORING ──────────────────────────────────────────────────────────────────
+function computeScores() {
+  var results = {};
+  state.sections.forEach(function(sec) {
+    var raw = 0, max = sec.questions.length * 5;
+    sec.questions.forEach(function(q){ raw += (state.answers[q.id] || 1); });
+    var pct = Math.round((raw / max) * 100);
+    results[sec.id] = { raw: raw, max: max, pct: pct, label: sec.label, icon: sec.icon, weight: sec.weight, color: sec.color };
+  });
+  var weighted = 0;
+  state.sections.forEach(function(sec){ weighted += results[sec.id].pct * sec.weight / 100; });
+  results.overall = Math.round(weighted);
+  return results;
+}
+
+function getBand(pct) {
+  if (pct < 25) return { name: 'Reactive',   cls: 'band-reactive',   desc: 'Observability is largely absent or fragmented. Incidents are detected reactively, often by customers first.' };
+  if (pct < 45) return { name: 'Aware',      cls: 'band-aware',      desc: 'Basic monitoring is in place but siloed. Business and IT metrics are disconnected.' };
+  if (pct < 65) return { name: 'Structured', cls: 'band-structured', desc: 'A structured observability foundation exists. Some cross-domain correlation but gaps remain.' };
+  if (pct < 82) return { name: 'Proactive',  cls: 'band-proactive',  desc: 'Advanced observability with automation and business linkage. RCA is fast and reliable.' };
+  return              { name: 'Adaptive',    cls: 'band-adaptive',   desc: 'World-class observability with AI/ML-driven intelligence and full business-IT alignment.' };
+}
+
+function getSecBand(pct) {
+  if (pct < 30) return { name: 'Reactive',   bg: '#ffe4e4', color: '#7f1d1d' };
+  if (pct < 55) return { name: 'Aware',      bg: '#f5f5f5', color: '#374151' };
+  if (pct < 75) return { name: 'Structured', bg: '#f0f0f0', color: '#111827' };
+  if (pct < 90) return { name: 'Proactive',  bg: '#e8f0e8', color: '#111827' };
+  return              { name: 'Adaptive',    bg: '#0f1923', color: '#ffffff' };
+}
+
+// ─── BACKEND SUBMISSION (silent) ──────────────────────────────────────────────
+function submitToBackend(scores) {
+  var band = getBand(scores.overall);
+  fetch('/api/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      session_id:       state.sessionId,
+      email:            state.email,
+      first_name:       state.fname,
+      last_name:        state.lname,
+      role:             state.persona,
+      sector:           state.sector,
+      country:          state.country,
+      sector_archetype: state.archetype,
+      question_variant: state.archetype,
+      answers:          state.answers,
+      scores:           scores,
+      maturity_band:    band.name
+    })
+  }).catch(function(){});
+}
+
+// ─── REPORT GENERATION ────────────────────────────────────────────────────────
+function generateReport() {
+  var scores = computeScores();
+
+  // Submit silently in background — never blocks report display
+  submitToBackend(scores);
+
+  var band  = getBand(scores.overall);
+  var name  = (state.fname || '') + (state.lname ? ' ' + state.lname : '') || 'Anonymous';
+  var date  = new Date().toLocaleDateString('en-IN', {day:'numeric', month:'long', year:'numeric'});
+  var gaps  = state.sections.filter(function(sec){ return scores[sec.id].pct < 55; });
+
+  var reportHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">'
+    + '<div>'
+    + '<p style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#6b7280;margin-bottom:4px;">Observability Maturity Report</p>'
+    + '<h2 style="font-family:\'DM Serif Display\',serif;font-size:1.6rem;font-weight:400;">Your Assessment Results</h2>'
+    + '<p style="font-size:12px;color:#6b7280;">Completed by ' + name + ' &middot; ' + date + '</p>'
+    + (state.persona ? '<p style="font-size:12px;color:#6b7280;">Role: ' + state.persona + (state.sector ? ' &middot; ' + state.sector : '') + '</p>' : '')
+    + '</div>'
+    + '<div class="pdf-actions">'
+    + '<button class="pdf-btn accent" onclick="downloadPDF()">&#x2B07; Download PDF</button>'
+    + '<button class="pdf-btn" onclick="window.print()">Print</button>'
+    + '</div>'
+    + '</div>';
+
+  reportHTML += '<div class="report-hero">'
+    + '<div>'
+    + '<h2>Your Observability Maturity Score</h2>'
+    + '<p class="meta">Weighted across 5 domains &middot; 25 questions</p>'
+    + '<div style="margin-top:14px;"><span class="maturity-band ' + band.cls + '">' + band.name + '</span></div>'
+    + '<p style="color:rgba(255,255,255,0.65);font-size:13px;max-width:380px;margin-top:0.75rem;line-height:1.5;">' + band.desc + '</p>'
+    + '</div>'
+    + '<div class="score-big">'
+    + '<div class="score-num">' + scores.overall + '<span style="font-size:1.5rem;color:rgba(255,255,255,0.4)">/100</span></div>'
+    + '<div class="score-label">Overall Maturity Score</div>'
+    + '</div>'
+    + '</div>';
+
+  reportHTML += '<div class="results-grid">';
+  state.sections.forEach(function(sec) {
+    var s = scores[sec.id], sb = getSecBand(s.pct);
+    reportHTML += '<div class="result-card rc-' + sec.id + '">'
+      + '<div class="rc-top"><div>'
+      + '<div style="font-size:18px;margin-bottom:2px;">' + sec.icon + '</div>'
+      + '<div class="rc-name">' + sec.label + '</div>'
+      + '<div class="rc-sub">Weight: ' + sec.weight + '% of total score</div>'
+      + '</div><div class="rc-score-wrap">'
+      + '<div class="rc-score">' + s.pct + '<span class="rc-score-max">%</span></div>'
+      + '</div></div>'
+      + '<div class="bar-track"><div class="bar-fill bf-' + sec.id + '" style="width:' + s.pct + '%"></div></div>'
+      + '<span class="rc-band-tag" style="background:' + sb.bg + ';color:' + sb.color + '">' + sb.name + '</span>'
+      + '</div>';
+  });
+  reportHTML += '</div>';
+
+  reportHTML += '<div style="background:#fff;border:0.5px solid var(--line);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;">'
+    + '<p style="font-size:13px;font-weight:600;margin-bottom:1rem;">Maturity radar across all five domains</p>'
+    + buildRadar(scores)
+    + '</div>';
+
+  reportHTML += buildFindings(scores);
+  reportHTML += buildVuNetRecs(scores);
+
+  reportHTML += '<div class="next-steps"><h3>Recommended next steps</h3><ul class="ns-list">';
+  gaps.forEach(function(g){
+    reportHTML += '<li>Address the <strong>' + g.label + '</strong> gap &mdash; your highest-leverage improvement area based on your responses.</li>';
+  });
+  reportHTML += '<li>Request a VuNet live demo scoped to your top two gap domains.</li>';
+  reportHTML += '<li>Ask VuNet to run a Proof of Value (PoV) on your own data &mdash; see business observability in your environment within 2 weeks.</li>';
+  reportHTML += '<li>Benchmark your score against peer organisations in your sector (available on request).</li>';
+  reportHTML += '</ul></div>';
+
+  reportHTML += '<div class="report-footer">'
+    + '<p style="margin-bottom:6px;"><strong>Observability Maturity Index</strong> &mdash; An industry benchmark initiative</p>'
+    + '<p>This report is based on self-assessment responses. Scores are indicative. Contact <a href="mailto:bharat@vunetsystems.com" style="color:var(--magenta);">bharat@vunetsystems.com</a> for a formal maturity assessment workshop.</p>'
+    + '</div>';
+
+  document.getElementById('report-content').innerHTML = reportHTML;
+  goTo('screen-report');
+}
+
+// ─── RADAR ────────────────────────────────────────────────────────────────────
+function buildRadar(scores) {
+  var cx = 200, cy = 200, r = 140, n = 5;
+  var ids    = ['txn','app','infra','log','comp'];
+  var labels = ['Business &\nTxn Obs', 'App\nPerf', 'Infra &\nNetwork', 'Log\nData Lake', 'Compliance'];
+
+  function pt(i, radius) {
+    var angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+    return { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) };
+  }
+
+  var gridLines = '';
+  [0.2,0.4,0.6,0.8,1].forEach(function(f) {
+    var pts = ids.map(function(_,i){ var p = pt(i, r*f); return p.x+','+p.y; }).join(' ');
+    gridLines += '<polygon points="' + pts + '" fill="none" stroke="#e5e7eb" stroke-width="1"/>';
+    gridLines += '<text x="' + (cx+4) + '" y="' + (cy - r*f + 4) + '" font-size="9" fill="#9ca3af">' + Math.round(f*100) + '</text>';
+  });
+
+  var axes = ids.map(function(_,i){
+    var p = pt(i, r);
+    return '<line x1="'+cx+'" y1="'+cy+'" x2="'+p.x+'" y2="'+p.y+'" stroke="#e5e7eb" stroke-width="1"/>';
+  }).join('');
+
+  var dataPoints = ids.map(function(id,i){ return pt(i, (scores[id].pct/100)*r); });
+  var polygon    = dataPoints.map(function(p){ return p.x+','+p.y; }).join(' ');
+  var dots       = dataPoints.map(function(p){ return '<circle cx="'+p.x+'" cy="'+p.y+'" r="4" fill="#C60675" stroke="#fff" stroke-width="2"/>'; }).join('');
+
+  var labelsSVG = ids.map(function(_,i){
+    var p  = pt(i, r + 22);
+    var lns = labels[i].split('\n');
+    return lns.map(function(ln,li){
+      return '<text x="'+p.x+'" y="'+(p.y + li*13 - (lns.length-1)*6)+'" text-anchor="middle" font-size="10" font-family="DM Sans,sans-serif" fill="#374151">'+ln+'</text>';
+    }).join('');
+  }).join('');
+
+  return '<div class="radar-wrap"><svg viewBox="0 0 400 400" width="340" height="340" xmlns="http://www.w3.org/2000/svg">'
+    + gridLines + axes
+    + '<polygon points="'+polygon+'" fill="rgba(198,6,117,0.1)" stroke="#C60675" stroke-width="2"/>'
+    + dots + labelsSVG
+    + '</svg></div>';
+}
+
+// ─── FINDINGS PER SECTION ─────────────────────────────────────────────────────
+function buildFindings(scores) {
+  var html = '';
+  state.sections.forEach(function(sec) {
+    var s = scores[sec.id];
+    html += '<div class="section-detail">'
+      + '<div class="sd-header"><span style="font-size:18px;">' + sec.icon + '</span>'
+      + '<h3>' + sec.label + '</h3>'
+      + '<span style="font-size:12px;color:#6b7280;margin-left:auto;">' + s.pct + '% maturity</span></div>'
+      + '<div class="sd-body">';
+
+    sec.questions.forEach(function(q) {
+      var ans = state.answers[q.id] || 1;
+      var type, label, note;
+      if (ans <= 2)    { type = 'gap';      label = 'Critical gap';        note = 'VuNet can address this.'; }
+      else if (ans===3){ type = 'partial';  label = 'Partial capability';  note = 'VuNet can accelerate maturity here.'; }
+      else             { type = 'strength'; label = 'Strength';             note = ''; }
+
+      var dotClass = type === 'gap' ? 'gap-flag' : (type === 'partial' ? 'partial-flag' : 'strength-flag');
+      var optText  = (q.options[ans - 1] || {}).text || '';
+      html += '<div class="finding-row">'
+        + '<div class="finding-dot ' + dotClass + '"></div>'
+        + '<div class="text"><strong>' + q.text.substring(0,90) + (q.text.length>90?'&hellip;':'') + '</strong>'
+        + '<span>' + label + ': ' + optText.substring(0,110) + (optText.length>110?'&hellip;':'')
+        + (note ? ' &mdash; <em>' + note + '</em>' : '') + '</span>'
+        + '</div></div>';
+    });
+    html += '</div></div>';
+  });
+  return html;
+}
+
+// ─── VUNET RECOMMENDATIONS ────────────────────────────────────────────────────
+function buildVuNetRecs(scores) {
+  var recs = [];
+
+  if (scores.txn.pct < 75) recs.push({
+    icon: '&#x1F4B3;',
+    title: 'Transaction Observability gap &mdash; VuNet&rsquo;s core differentiator',
+    body: 'VuNet vuTxn360 provides end-to-end business transaction tracing across channels, applications, and infrastructure &mdash; linking IT RCA directly to business SLA impact. Unlike generic APM tools, VuNet maps each transaction step to a business KPI. This is where VuNet uniquely differentiates from Dynatrace, Datadog, and ELK in regulated enterprise contexts.'
+  });
+  if (scores.log.pct < 65) recs.push({
+    icon: '&#x1F4E6;',
+    title: 'Log Data Lake gap &mdash; vuLogX centralised log analytics',
+    body: 'VuNet vuLogX delivers a fully on-premise log data lake with regulatory-aligned retention, sub-second query across terabyte-scale datasets, and ML-driven anomaly detection &mdash; all with zero data egress. Designed for regulated environments where data sovereignty is non-negotiable.'
+  });
+  if (scores.infra.pct < 65) recs.push({
+    icon: '&#x1F5A5;',
+    title: 'Infrastructure visibility gap &mdash; vuInfra360',
+    body: 'VuNet vuInfra360 provides full-stack infrastructure observability including network path analytics (jitter, latency, packet loss), container monitoring, and data centre health &mdash; all unified on one platform. No separate agents for network and compute.'
+  });
+  if (scores.comp.pct < 65) recs.push({
+    icon: '&#x1F6E1;',
+    title: 'Compliance readiness gap &mdash; built-in, not bolted on',
+    body: 'VuNet is architected for regulated environments. Immutable log storage, RBAC with full access audit trails, WORM-compatible storage, and on-demand audit-pack generation are native capabilities. VuNet has active deployments at SBI, ICICI, NPCI, and UCO addressing exactly these compliance requirements.'
+  });
+  if (scores.app.pct < 65) recs.push({
+    icon: '&#x26A1;',
+    title: 'Application performance gap &mdash; vuApp360',
+    body: 'VuNet vuApp360 provides APM capabilities integrated on the same platform as transaction and infrastructure observability. SLO tracking, distributed tracing, and third-party API dependency monitoring are unified &mdash; eliminating context-switching that slows incident response across siloed tools.'
+  });
+
+  if (recs.length === 0) recs.push({
+    icon: '&#x2605;',
+    title: 'Strong foundation &mdash; ready for adaptive observability',
+    body: 'Your organisation has an advanced observability capability. VuNet can help you move to the next level: ML-driven business impact scoring, AIOps-powered RCA, and a unified Business Observability Command Centre that serves both IT and business leadership.'
+  });
+
+  var html = '<div class="vunet-gap-box">'
+    + '<h3>How VuNet can help close these gaps</h3>'
+    + '<p class="sub">Based on your assessment, these are the specific VuNet capabilities that address your identified gaps.</p>'
+    + '<div class="gap-items">';
+  recs.forEach(function(rec){
+    html += '<div class="gap-item"><span class="gap-item-icon">' + rec.icon + '</span>'
+      + '<div><h4>' + rec.title + '</h4><p>' + rec.body + '</p></div></div>';
+  });
+  html += '</div></div>';
+  return html;
+}
+
+// ─── PDF DOWNLOAD ─────────────────────────────────────────────────────────────
+function downloadPDF() {
+  var actionsEl = document.querySelector('.pdf-actions');
+  var dlBtn     = actionsEl ? actionsEl.querySelector('button.accent') : null;
+  var allBtns   = actionsEl ? actionsEl.querySelectorAll('button') : [];
+
+  // Gray out buttons in place — no layout shift on screen
+  allBtns.forEach(function(b) { b.disabled = true; b.style.opacity = '0.45'; b.style.cursor = 'not-allowed'; });
+  if (dlBtn) dlBtn.innerHTML = 'Generating&hellip;';
+
+  // Work on an off-screen clone at 1200px so the visible page never shifts
+  var el    = document.getElementById('report-content');
+  var clone = el.cloneNode(true);
+  clone.style.cssText += ';position:absolute;top:0;left:-9999px;width:1200px;max-width:none;';
+  var cloneActions = clone.querySelector('.pdf-actions');
+  if (cloneActions) cloneActions.style.display = 'none';
+  document.body.appendChild(clone);
+
+  var containerRect = clone.getBoundingClientRect();
+  var safeBreaks = [];
+  clone.querySelectorAll(
+    '.report-hero, .results-grid, .section-detail, .vunet-gap-box, .next-steps, .report-footer'
+  ).forEach(function(block) {
+    var top = block.getBoundingClientRect().top - containerRect.top;
+    if (top > 10) safeBreaks.push(top);
+  });
+  safeBreaks.sort(function(a, b) { return a - b; });
+
+  document.fonts.ready.then(function() {
+    html2canvas(clone, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#f9fafb'
+    }).then(function(canvas) {
+      document.body.removeChild(clone);
+      allBtns.forEach(function(b) { b.disabled = false; b.style.opacity = ''; b.style.cursor = ''; });
+      if (dlBtn) dlBtn.innerHTML = '&#x2B07; Download PDF';
+
+      var jsPDF_ = window.jspdf.jsPDF;
+      var pdf    = new jsPDF_('p', 'mm', 'a4');
+      var pageW  = pdf.internal.pageSize.getWidth();
+      var pageH  = pdf.internal.pageSize.getHeight();
+      var margin = 12;
+      var cW     = pageW - 2 * margin;
+      var cH     = pageH - 2 * margin;
+
+      // canvas.width = 1200 * 2 = 2400; scale factor is exactly 2
+      var scale2  = canvas.width / 1200;          // should be 2
+      var pxPerMm = canvas.width / cW;
+      var maxPagePx = Math.floor(cH * pxPerMm);
+
+      // CSS positions measured at 1200px → multiply by scale2 for canvas pixels
+      var breaksPx = safeBreaks.map(function(b) { return Math.round(b * scale2); });
+
+      var cuts = [0];
+      while (true) {
+        var last  = cuts[cuts.length - 1];
+        var ideal = last + maxPagePx;
+        if (ideal >= canvas.height) break;
+        var minCut = last + Math.floor(maxPagePx * 0.3);
+        var best   = ideal;
+        for (var j = breaksPx.length - 1; j >= 0; j--) {
+          if (breaksPx[j] < ideal && breaksPx[j] >= minCut) { best = breaksPx[j]; break; }
+        }
+        cuts.push(best);
+      }
+      cuts.push(canvas.height);
+
+      for (var i = 0; i < cuts.length - 1; i++) {
+        if (i > 0) pdf.addPage();
+        var srcY = cuts[i];
+        var srcH = cuts[i + 1] - cuts[i];
+
+        var pc  = document.createElement('canvas');
+        pc.width  = canvas.width;
+        pc.height = srcH;
+        var ctx = pc.getContext('2d');
+        ctx.fillStyle = '#f9fafb';
+        ctx.fillRect(0, 0, pc.width, pc.height);
+        ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+
+        pdf.addImage(pc.toDataURL('image/png'), 'PNG', margin, margin, cW, srcH / pxPerMm);
+      }
+
+      pdf.save('OMI_Report_' + new Date().toISOString().slice(0,10) + '.pdf');
+    });
+  });
+}
+</script>
+
+</body>
+</html>

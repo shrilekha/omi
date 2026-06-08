@@ -1,0 +1,48 @@
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:5050
+Press CTRL+C to quit
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 801-150-074
+127.0.0.1 - - [08/Jun/2026 14:07:36] "POST /api/submit HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:08:59] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:09:00] "GET /assets/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:09:00] "GET /questions.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:09:00] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [08/Jun/2026 14:09:20] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:09:20] "GET /assets/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:09:20] "GET /questions.js HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:09:20] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [08/Jun/2026 14:12:35] "POST /api/submit HTTP/1.1" 200 -
+ * Detected change in 'c:\\Shrilekha\\OMI\\backend\\email_sender.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 801-150-074
+ * Detected change in 'c:\\Shrilekha\\OMI\\backend\\email_sender.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 801-150-074
+127.0.0.1 - - [08/Jun/2026 14:25:02] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:25:02] "GET /assets/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:25:02] "GET /questions.js HTTP/1.1" 304 -
+127.0.0.1 - - [08/Jun/2026 14:26:26] "POST /api/submit HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:26:32] "GET /assets/style.css HTTP/1.1" 304 -
+ * Detected change in 'c:\\Shrilekha\\OMI\\backend\\db.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 801-150-074
+ * Detected change in 'c:\\Shrilekha\\OMI\\backend\\db.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 801-150-074
+ * Detected change in 'c:\\Shrilekha\\OMI\\backend\\email_sender.py', reloading
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 801-150-074
+127.0.0.1 - - [08/Jun/2026 14:42:06] "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:42:12] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:42:13] "GET /assets/style.css HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:42:13] "GET /questions.js HTTP/1.1" 304 -
+127.0.0.1 - - [08/Jun/2026 14:42:24] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [08/Jun/2026 14:42:24] "GET /assets/style.css HTTP/1.1" 304 -
+127.0.0.1 - - [08/Jun/2026 14:42:24] "GET /questions.js HTTP/1.1" 304 -
