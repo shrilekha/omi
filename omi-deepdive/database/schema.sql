@@ -55,3 +55,20 @@ CREATE TABLE IF NOT EXISTS submissions (
     INDEX idx_app (app_id),
     INDEX idx_submitted_at (submitted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Internal RBAC. Only meaningful once Google OAuth admin login is enabled
+-- (see .env.example) -- a verified Google identity with no active row here,
+-- and not covered by INITIAL_ADMIN_EMAILS at bootstrap, cannot reach any
+-- /admin or /dashboard route. Password-mode (ADMIN_KEY) login has no concept
+-- of per-user roles; it remains all-or-nothing admin access, as before.
+-- This is authorization, distinct from Google OAuth's identity and from the
+-- per-app access_token above, which is external respondent access requiring
+-- no login and no role at all.
+CREATE TABLE IF NOT EXISTS admin_users (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    email       VARCHAR(255) NOT NULL UNIQUE,
+    -- admin | assessment_manager | reviewer | executive
+    role        VARCHAR(30) NOT NULL,
+    is_active   TINYINT(1) NOT NULL DEFAULT 1,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

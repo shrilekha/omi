@@ -3,30 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>omi-deepdive — Existing Organizations</title>
+<title>omi-deepdive — Dashboard</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <div class="wrap">
   <header class="page-header">
-    <span class="badge">omi-deepdive · admin</span>
-    <h1>Admin</h1>
+    <span class="badge">omi-deepdive · dashboard</span>
+    <h1>Organizations</h1>
     <p class="sub">
-      <a href="{{ url_for('dashboard') }}">Dashboard</a>
-      {% if session.admin_role == 'admin' %}&nbsp;·&nbsp;<a href="{{ url_for('admin_users_page') }}">Manage users</a>{% endif %}
+      Read-only view — jump straight to any organization's consolidated report.
+      {% if session.admin_role == 'admin' or session.admin_role == 'assessment_manager' %}
+        &nbsp;·&nbsp;<a href="{{ url_for('admin_new') }}">Admin console</a>
+      {% endif %}
       &nbsp;·&nbsp;
-      {% if session.admin_email %}Signed in as {{ session.admin_email }} &nbsp;·&nbsp; {% endif %}
+      {% if session.admin_email %}Signed in as {{ session.admin_email }} ({{ session.admin_role }}) &nbsp;·&nbsp; {% endif %}
       <a href="{{ url_for('admin_logout') }}">Log out</a>
     </p>
   </header>
 
-  <nav class="tab-nav">
-    <a href="{{ url_for('admin_new') }}">Create organization</a>
-    <a href="{{ url_for('admin_orgs') }}" class="active">Existing organizations</a>
-  </nav>
-
   <section class="card">
-    <h2>Existing organizations</h2>
     {% if orgs %}
     <table>
       <thead><tr><th>Organization</th><th>Created</th><th></th></tr></thead>
@@ -35,7 +31,7 @@
         <tr>
           <td>{{ o.name }}</td>
           <td>{{ o.created_at }}</td>
-          <td><a href="{{ url_for('admin_org', org_id=o.id) }}">View links</a></td>
+          <td><a href="{{ url_for('report', report_token=o.report_token) }}" target="_blank" rel="noopener" class="btn-open">Open report &#8599;</a></td>
         </tr>
         {% endfor %}
       </tbody>
@@ -44,16 +40,16 @@
     {% if total_pages > 1 %}
     <div style="display:flex; align-items:center; justify-content:space-between; margin-top:16px;">
       {% if page > 1 %}
-        <a href="{{ url_for('admin_orgs', page=page - 1) }}">&larr; Newer</a>
+        <a href="{{ url_for('dashboard', page=page - 1) }}">&larr; Newer</a>
       {% else %}<span></span>{% endif %}
       <span class="sub">Page {{ page }} of {{ total_pages }}</span>
       {% if page < total_pages %}
-        <a href="{{ url_for('admin_orgs', page=page + 1) }}">Older &rarr;</a>
+        <a href="{{ url_for('dashboard', page=page + 1) }}">Older &rarr;</a>
       {% else %}<span></span>{% endif %}
     </div>
     {% endif %}
     {% else %}
-    <p class="sub">No organizations yet — <a href="{{ url_for('admin_new') }}">create one</a>.</p>
+    <p class="sub">No organizations yet.</p>
     {% endif %}
   </section>
 </div>

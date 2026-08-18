@@ -43,6 +43,14 @@ CREATE TABLE IF NOT EXISTS submissions (
     maturity_band          TEXT,
     submitted_at           DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS admin_users (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    email       TEXT NOT NULL UNIQUE,
+    role        TEXT NOT NULL,
+    is_active   INTEGER NOT NULL DEFAULT 1,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
@@ -307,3 +315,61 @@ def save_submission(app_id, data):
             conn.commit()
     finally:
         conn.close()
+
+
+def _execute(sql, params):
+    ph = _placeholder()
+    sql = sql.replace('?', ph) if ENV == 'production' else sql
+    conn = _get_conn()
+    try:
+        if ENV == 'production':
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+            conn.commit()
+        else:
+            conn.execute(sql, params)
+            conn.commit()
+    finally:
+        conn.close()
+
+
+# ─── Admin users (internal RBAC) ───────────────────────────────────────────────
+# Distinct from Google OAuth (identity) and from apps.access_token (external
+# respondent access, no login, no role). A Google identity with no active row
+# here — and not covered by INITIAL_ADMIN_EMAILS at bootstrap — cannot reach
+# any /admin or /dashboard route.
+
+def get_admin_user(email):
+    conn = _get_conn()
+    try:
+        return _fetchone_dict(
+            conn, "SELECT * FROM admin_users WHERE email = ? AND is_active = 1", (email,)
+        )
+    finally:
+        conn.close()
+
+
+def list_admin_users():
+    conn = _get_conn()
+    try:
+        return _fetchall_dict(conn, "SELECT * FROM admin_users ORDER BY created_at", ())
+    finally:
+        conn.close()
+
+
+def upsert_admin_user(email, role):
+    conn = _get_conn()
+    try:
+        existing = _fetchone_dict(conn, "SELECT id FROM admin_users WHERE email = ?", (email,))
+    finally:
+        conn.close()
+    if existing:
+        _execute("UPDATE admin_users SET role = ?, is_active = 1 WHERE email = ?", (role, email))
+    else:
+        _execute(
+            "INSERT INTO admin_users (email, role, is_active) VALUES (?, ?, 1)", (email, role)
+        )
+
+
+def deactivate_admin_user(email):
+    _execute("UPDATE admin_users SET is_active = 0 WHERE email = ?", (email,))

@@ -18,6 +18,7 @@ from db import (
     get_latest_submission, save_submission, create_organization, create_app,
     get_organization, get_all_organizations, get_app, delete_submissions_for_app,
     delete_submissions_for_org, count_organizations, get_organizations_page,
+    get_admin_user, list_admin_users, upsert_admin_user, deactivate_admin_user,
 )
 from scoring import compute_scores
 from questions import DIMENSIONS, OWNERSHIP_QUESTIONS
@@ -45,6 +46,29 @@ OAUTH_LOGIN_ERRORS = {
     'oauth_failed': 'Google sign-in failed. Please try again.',
     'oauth_unverified': "That Google account's email is not verified.",
     'oauth_domain': 'That Google account is not authorized for this tool.',
+    'not_authorized': "That Google account isn't set up in this tool yet. "
+                       "Contact an admin to be added.",
+}
+
+# ─── Internal RBAC ──────────────────────────────────────────────────────────
+# Only meaningful once Google OAuth is enabled (OAUTH_ENABLED above) — a
+# verified Google identity is *identity*, not *authorization*; it must also
+# carry one of these roles (admin_users table) to reach an internal route.
+# In password-mode (ADMIN_KEY, no OAuth), there is no per-user identity to
+# check a role against, so the shared key continues to grant full admin
+# access as before — require_role() below falls back to that.
+ROLE_ADMIN = 'admin'
+ROLE_ASSESSMENT_MANAGER = 'assessment_manager'
+ROLE_REVIEWER = 'reviewer'
+ROLE_EXECUTIVE = 'executive'
+ALL_ROLES = [ROLE_ADMIN, ROLE_ASSESSMENT_MANAGER, ROLE_REVIEWER, ROLE_EXECUTIVE]
+MANAGE_ROLES = (ROLE_ADMIN, ROLE_ASSESSMENT_MANAGER)
+VIEW_ROLES = (ROLE_ADMIN, ROLE_ASSESSMENT_MANAGER, ROLE_REVIEWER, ROLE_EXECUTIVE)
+
+# Comma-separated emails allowed to bootstrap themselves as the first admin(s)
+# the first time they sign in with Google, before admin_users has any rows.
+INITIAL_ADMIN_EMAILS = {
+    e.strip().lower() for e in os.getenv('INITIAL_ADMIN_EMAILS', '').split(',') if e.strip()
 }
 
 # Trust X-Forwarded-Host/-Proto/-For/-Port from the reverse proxy in front of
@@ -64,13 +88,19 @@ def _pdf_filename(*parts):
     return '_'.join([_slug(p) for p in parts] + [stamp])
 
 
-def require_admin(view):
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        if not session.get('admin'):
-            return redirect(url_for('admin_login', next=request.path))
-        return view(*args, **kwargs)
-    return wrapped
+def require_role(*roles):
+    def decorator(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            if not session.get('admin'):
+                return redirect(url_for('admin_login', next=request.path))
+            if OAUTH_ENABLED and session.get('admin_role') not in roles:
+                return render_template(
+                    'admin_forbidden.html', required_roles=roles
+                ), 403
+            return view(*args, **kwargs)
+        return wrapped
+    return decorator
 
 
 @app.route('/')
@@ -95,6 +125,7 @@ def admin_login():
     if request.method == 'POST':
         if request.form.get('key') == ADMIN_KEY:
             session['admin'] = True
+            session['admin_role'] = ROLE_ADMIN
             return redirect(request.args.get('next') or url_for('admin_new'))
         error = 'Incorrect key.'
     return render_template('admin_login.html', error=error, oauth_enabled=False)
@@ -159,8 +190,21 @@ def admin_google_callback():
     if GOOGLE_ALLOWED_DOMAIN and not email.lower().endswith('@' + GOOGLE_ALLOWED_DOMAIN):
         return redirect(url_for('admin_login', error='oauth_domain'))
 
+    # Identity (verified Google email) is not the same as authorization —
+    # the email must also carry a role, either already granted in admin_users
+    # or matched against the one-time bootstrap list below.
+    admin_user = get_admin_user(email)
+    if admin_user:
+        role = admin_user['role']
+    elif email.lower() in INITIAL_ADMIN_EMAILS:
+        upsert_admin_user(email, ROLE_ADMIN)
+        role = ROLE_ADMIN
+    else:
+        return redirect(url_for('admin_login', error='not_authorized'))
+
     session['admin'] = True
     session['admin_email'] = email
+    session['admin_role'] = role
     return redirect(url_for('admin_new'))
 
 
@@ -168,6 +212,7 @@ def admin_google_callback():
 def admin_logout():
     session.pop('admin', None)
     session.pop('admin_email', None)
+    session.pop('admin_role', None)
     return redirect(url_for('admin_login'))
 
 
@@ -175,7 +220,7 @@ ORGS_PER_PAGE = 10
 
 
 @app.route('/admin/new', methods=['GET', 'POST'])
-@require_admin
+@require_role(*MANAGE_ROLES)
 def admin_new():
     if request.method == 'POST':
         org_name = request.form.get('org_name', '').strip()
@@ -196,7 +241,7 @@ def admin_new():
 
 
 @app.route('/admin/orgs')
-@require_admin
+@require_role(*MANAGE_ROLES)
 def admin_orgs():
     page = max(1, request.args.get('page', 1, type=int))
     total = count_organizations()
@@ -207,7 +252,7 @@ def admin_orgs():
 
 
 @app.route('/admin/org/<int:org_id>')
-@require_admin
+@require_role(*MANAGE_ROLES)
 def admin_org(org_id):
     org = get_organization(org_id)
     if not org:
@@ -218,7 +263,7 @@ def admin_org(org_id):
 
 
 @app.route('/admin/app/<int:app_id>/reset', methods=['POST'])
-@require_admin
+@require_role(*MANAGE_ROLES)
 def admin_reset_app(app_id):
     app_row = get_app(app_id)
     if not app_row:
@@ -228,13 +273,46 @@ def admin_reset_app(app_id):
 
 
 @app.route('/admin/org/<int:org_id>/reset', methods=['POST'])
-@require_admin
+@require_role(*MANAGE_ROLES)
 def admin_reset_org(org_id):
     org = get_organization(org_id)
     if not org:
         abort(404)
     delete_submissions_for_org(org_id)
     return redirect(url_for('admin_org', org_id=org_id))
+
+
+@app.route('/admin/users', methods=['GET', 'POST'])
+@require_role(ROLE_ADMIN)
+def admin_users_page():
+    error = None
+    if request.method == 'POST':
+        action = request.form.get('action')
+        email = (request.form.get('email') or '').strip().lower()
+        if action == 'add':
+            role = request.form.get('role')
+            if email and role in ALL_ROLES:
+                upsert_admin_user(email, role)
+            else:
+                error = 'Enter a valid email and choose a role.'
+        elif action == 'deactivate' and email:
+            deactivate_admin_user(email)
+    users = list_admin_users()
+    return render_template(
+        'admin_users.html', users=users, roles=ALL_ROLES, error=error,
+        oauth_enabled=OAUTH_ENABLED,
+    )
+
+
+@app.route('/dashboard')
+@require_role(*VIEW_ROLES)
+def dashboard():
+    page = max(1, request.args.get('page', 1, type=int))
+    total = count_organizations()
+    total_pages = max(1, (total + ORGS_PER_PAGE - 1) // ORGS_PER_PAGE)
+    page = min(page, total_pages)
+    orgs = get_organizations_page(ORGS_PER_PAGE, (page - 1) * ORGS_PER_PAGE)
+    return render_template('dashboard.html', orgs=orgs, page=page, total_pages=total_pages)
 
 
 @app.route('/app/<token>', methods=['GET', 'POST'])

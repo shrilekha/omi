@@ -22,6 +22,52 @@ body {
 .wrap.wide { max-width: 1100px; }
 .wrap.narrow { max-width: 520px; margin-top: 10vh; }
 
+.login-wrap { margin-top: 8vh; }
+.login-card { text-align: center; padding: 40px 36px; }
+.login-mark {
+  width: 56px; height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--accent), #6366f1);
+  color: #fff;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -.02em;
+  display: flex; align-items: center; justify-content: center;
+}
+.login-card h1 { font-size: 24px; margin: 4px 0 6px; }
+.login-card .sub { margin-bottom: 20px; }
+.login-card form { text-align: left; }
+.login-error {
+  background: #fef3f2;
+  color: #b42318;
+  border: 1px solid #fda29b;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+.login-footnote { font-size: 12px; margin-top: 16px; margin-bottom: 0; }
+
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #fff;
+  color: #3c4043;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  text-decoration: none;
+  transition: box-shadow .15s, background .15s;
+}
+.google-btn:hover { background: #f8f9fa; box-shadow: 0 1px 3px rgba(60,64,67,0.3); }
+
 .badge {
   display: inline-block;
   background: var(--accent-bg);
