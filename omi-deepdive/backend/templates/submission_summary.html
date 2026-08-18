@@ -59,7 +59,7 @@
   <section class="card dimension dim-{{ band }}">
     <h2>
       {{ dim.name }}
-      <span class="dim-badge dim-badge-{{ band }}">{% if is_na %}N/A{% else %}{{ dscore|round(0, 'floor')|int }}%{% endif %}</span>
+      <span class="dim-badge dim-badge-{{ band }}">{% if is_na %}N/A{% elif dscore is none %}Not answered{% else %}{{ dscore|round(0, 'floor')|int }}%{% endif %}</span>
     </h2>
     <div class="tool-line">Current tool/vendor: <strong>{{ result.tools.get(dim.id) or 'None reported' }}</strong></div>
 

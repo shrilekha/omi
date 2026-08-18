@@ -76,28 +76,17 @@ def admin_logout():
 ORGS_PER_PAGE = 10
 
 
-def _render_admin_new(error=None):
-    page = max(1, request.args.get('page', 1, type=int))
-    total = count_organizations()
-    total_pages = max(1, (total + ORGS_PER_PAGE - 1) // ORGS_PER_PAGE)
-    page = min(page, total_pages)
-    orgs = get_organizations_page(ORGS_PER_PAGE, (page - 1) * ORGS_PER_PAGE)
-    return render_template(
-        'admin_new.html', orgs=orgs, error=error, page=page, total_pages=total_pages
-    )
-
-
 @app.route('/admin/new', methods=['GET', 'POST'])
 @require_admin
 def admin_new():
     if request.method == 'POST':
         org_name = request.form.get('org_name', '').strip()
         if not org_name:
-            return _render_admin_new(error='Organization name is required.')
+            return render_template('admin_new.html', error='Organization name is required.')
 
         app_names = [v.strip() for k, v in request.form.items() if k.startswith('app_name_') and v.strip()]
         if not app_names:
-            return _render_admin_new(error='At least one app name is required.')
+            return render_template('admin_new.html', error='At least one app name is required.')
 
         org_id, _ = create_organization(org_name)
         for name in app_names:
@@ -105,7 +94,18 @@ def admin_new():
 
         return redirect(url_for('admin_org', org_id=org_id))
 
-    return _render_admin_new()
+    return render_template('admin_new.html', error=None)
+
+
+@app.route('/admin/orgs')
+@require_admin
+def admin_orgs():
+    page = max(1, request.args.get('page', 1, type=int))
+    total = count_organizations()
+    total_pages = max(1, (total + ORGS_PER_PAGE - 1) // ORGS_PER_PAGE)
+    page = min(page, total_pages)
+    orgs = get_organizations_page(ORGS_PER_PAGE, (page - 1) * ORGS_PER_PAGE)
+    return render_template('admin_orgs.html', orgs=orgs, page=page, total_pages=total_pages)
 
 
 @app.route('/admin/org/<int:org_id>')

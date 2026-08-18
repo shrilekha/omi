@@ -12,7 +12,9 @@
     <span class="badge">omi-deepdive · admin</span>
     <h1>{{ org.name }}</h1>
     <p class="sub">
-      <a href="{{ url_for('admin_new') }}">&larr; Back to create another organization</a>
+      <a href="{{ url_for('admin_orgs') }}">&larr; All organizations</a>
+      &nbsp;·&nbsp;
+      <a href="{{ url_for('admin_new') }}">+ New organization</a>
       &nbsp;·&nbsp;
       <a href="{{ url_for('admin_logout') }}">Log out</a>
     </p>
