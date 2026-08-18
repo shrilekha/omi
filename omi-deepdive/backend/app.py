@@ -11,7 +11,7 @@ from db import (
     init_db, get_app_by_token, get_org_by_report_token, get_apps_for_org,
     get_latest_submission, save_submission, create_organization, create_app,
     get_organization, get_all_organizations, get_app, delete_submissions_for_app,
-    delete_submissions_for_org,
+    delete_submissions_for_org, count_organizations, get_organizations_page,
 )
 from scoring import compute_scores
 from questions import DIMENSIONS, OWNERSHIP_QUESTIONS
@@ -62,17 +62,31 @@ def admin_logout():
     return redirect(url_for('admin_login'))
 
 
+ORGS_PER_PAGE = 10
+
+
+def _render_admin_new(error=None):
+    page = max(1, request.args.get('page', 1, type=int))
+    total = count_organizations()
+    total_pages = max(1, (total + ORGS_PER_PAGE - 1) // ORGS_PER_PAGE)
+    page = min(page, total_pages)
+    orgs = get_organizations_page(ORGS_PER_PAGE, (page - 1) * ORGS_PER_PAGE)
+    return render_template(
+        'admin_new.html', orgs=orgs, error=error, page=page, total_pages=total_pages
+    )
+
+
 @app.route('/admin/new', methods=['GET', 'POST'])
 @require_admin
 def admin_new():
     if request.method == 'POST':
         org_name = request.form.get('org_name', '').strip()
         if not org_name:
-            return render_template('admin_new.html', orgs=get_all_organizations(), error='Organization name is required.')
+            return _render_admin_new(error='Organization name is required.')
 
         app_names = [v.strip() for k, v in request.form.items() if k.startswith('app_name_') and v.strip()]
         if not app_names:
-            return render_template('admin_new.html', orgs=get_all_organizations(), error='At least one app name is required.')
+            return _render_admin_new(error='At least one app name is required.')
 
         org_id, _ = create_organization(org_name)
         for name in app_names:
@@ -80,7 +94,7 @@ def admin_new():
 
         return redirect(url_for('admin_org', org_id=org_id))
 
-    return render_template('admin_new.html', orgs=get_all_organizations(), error=None)
+    return _render_admin_new()
 
 
 @app.route('/admin/org/<int:org_id>')
@@ -129,10 +143,29 @@ def assess(token):
         result['owner_contact'] = request.form.get('owner_contact', '')
         result['biggest_blocker'] = request.form.get('biggest_blocker', '')
         save_submission(app_row['id'], result)
-        return render_template('thanks.html', app_row=app_row, result=result)
+        return render_template(
+            'submission_summary.html', app_row=app_row, result=result, just_submitted=True,
+            dimensions=DIMENSIONS,
+        )
 
+    existing = get_latest_submission(app_row['id'])
     return render_template(
-        'assess.html', app_row=app_row, dimensions=DIMENSIONS, ownership=OWNERSHIP_QUESTIONS
+        'assess.html', app_row=app_row, dimensions=DIMENSIONS, ownership=OWNERSHIP_QUESTIONS,
+        existing=existing,
+    )
+
+
+@app.route('/app/<token>/print')
+def print_submission(token):
+    app_row = get_app_by_token(token)
+    if not app_row:
+        abort(404)
+    existing = get_latest_submission(app_row['id'])
+    if not existing:
+        abort(404)
+    return render_template(
+        'submission_summary.html', app_row=app_row, result=existing, just_submitted=False,
+        dimensions=DIMENSIONS,
     )
 
 

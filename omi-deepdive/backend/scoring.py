@@ -13,6 +13,7 @@ def compute_scores(form):
     answers = {}
     tools = {}
     dimension_scores = {}
+    na_dims = []
 
     for dim in DIMENSIONS:
         marked_na = dim.get('na_allowed') and form.get(f"na_{dim['id']}") == 'on'
@@ -20,6 +21,7 @@ def compute_scores(form):
 
         if marked_na:
             dimension_scores[dim['id']] = None
+            na_dims.append(dim['id'])
             continue
 
         scores = []
@@ -48,6 +50,7 @@ def compute_scores(form):
         'answers': answers,
         'tools': tools,
         'dimension_scores': dimension_scores,
+        'na_dims': na_dims,
         'overall_score': overall,
         'maturity_band': maturity_band(overall),
     }

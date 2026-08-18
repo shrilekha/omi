@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS submissions (
     tools_json              TEXT NOT NULL,
     -- {dimension_id: score 0-100, or null if marked not-applicable}
     dimension_scores_json  TEXT NOT NULL,
+    -- [dimension_id, ...] dimensions explicitly marked not-applicable (disambiguates
+    -- "marked N/A" from "left blank" when dimension_scores_json has a null)
+    na_dims_json           TEXT NOT NULL DEFAULT ('[]'),
 
     overall_score          DECIMAL(5,2),
     maturity_band          VARCHAR(20),

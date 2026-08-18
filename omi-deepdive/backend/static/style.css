@@ -143,6 +143,18 @@ th { color: var(--sub); font-weight: 600; font-size: 12px; text-transform: upper
 
 .detail-table td, .detail-table th { white-space: normal; }
 
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; padding: 0; }
+  .wrap, .wrap.wide { max-width: 100%; }
+  .card { border: 1px solid #ccc; break-inside: avoid; box-shadow: none; }
+  .table-scroll { overflow: visible !important; }
+  .heatmap { font-size: 11px; }
+  .app-detail { break-before: page; }
+  a[href]:after { content: ""; }
+}
+@page { size: landscape; margin: 12mm; }
+
 .danger-zone { border-color: #fda29b; }
 .danger-zone h2 { color: #b42318; }
 .reset-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--border); }

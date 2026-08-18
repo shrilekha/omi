@@ -12,6 +12,13 @@
     <span class="badge">omi-deepdive · per-app E2E observability assessment</span>
     <h1>{{ app_row.name }}</h1>
     <p class="sub">{{ app_row.org_name }} — answer for this application specifically, not for the organization as a whole.</p>
+    {% if existing %}
+    <p class="sub">
+      A previous response from {{ existing.submitted_at }} is pre-filled below — edit anything and
+      resubmit to update it. &nbsp;·&nbsp;
+      <a href="{{ url_for('print_submission', token=app_row.access_token) }}">View / print that submission</a>
+    </p>
+    {% endif %}
   </header>
 
   <form method="POST" action="">
@@ -19,13 +26,13 @@
       <h2>About you</h2>
       <div class="grid3">
         <label>Your name
-          <input type="text" name="respondent_name" required>
+          <input type="text" name="respondent_name" value="{{ existing.respondent_name if existing else '' }}" required>
         </label>
         <label>Your email
-          <input type="email" name="respondent_email" required>
+          <input type="email" name="respondent_email" value="{{ existing.respondent_email if existing else '' }}" required>
         </label>
         <label>Your role
-          <input type="text" name="respondent_role" placeholder="e.g. App Owner, Engineering Lead">
+          <input type="text" name="respondent_role" value="{{ existing.respondent_role if existing else '' }}" placeholder="e.g. App Owner, Engineering Lead">
         </label>
       </div>
     </section>
@@ -34,35 +41,37 @@
       <h2>Ownership &amp; blockers</h2>
       {% for oq in ownership %}
       <label class="block">{{ oq.text }}
-        <textarea name="{{ oq.id }}" rows="2"></textarea>
+        <textarea name="{{ oq.id }}" rows="2">{{ existing[oq.id] if existing else '' }}</textarea>
       </label>
       {% endfor %}
     </section>
 
     {% for dim in dimensions %}
+    {% set is_na = existing and dim.id in existing.na_dims %}
     <section class="card dimension">
       <h2>{{ dim.name }} <span class="weight">({{ dim.weight }}% weight)</span></h2>
 
       <label class="block tool-question">{{ dim.tool_question.text }}
-        <input type="text" name="{{ dim.tool_question.id }}" placeholder="e.g. VuNet, Dynatrace, SolarWinds, in-house script, none">
+        <input type="text" name="{{ dim.tool_question.id }}" value="{{ existing.tools.get(dim.id, '') if existing else '' }}" placeholder="e.g. VuNet, Dynatrace, SolarWinds, in-house script, none">
       </label>
 
       {% if dim.na_allowed %}
       <label class="na-toggle">
-        <input type="checkbox" name="na_{{ dim.id }}" onclick="toggleDim('{{ dim.id }}', this.checked)">
+        <input type="checkbox" name="na_{{ dim.id }}" onclick="toggleDim('{{ dim.id }}', this.checked)" {% if is_na %}checked{% endif %}>
         {{ dim.na_label }}
       </label>
       {% endif %}
 
       <div id="dim-{{ dim.id }}-questions">
         {% for q in dim.questions %}
+        {% set prev_score = existing.answers.get(q.id) if existing else None %}
         <div class="question">
           <p class="qtext">{{ q.text }}</p>
           {% if q.hint %}<p class="hint">{{ q.hint }}</p>{% endif %}
           <div class="options">
             {% for opt in q.options %}
             <label class="option">
-              <input type="radio" name="q_{{ q.id }}" value="{{ loop.index }}">
+              <input type="radio" name="q_{{ q.id }}" value="{{ loop.index }}" {% if prev_score == loop.index %}checked{% endif %}>
               <span><strong>{{ loop.index }}.</strong> {{ opt }}</span>
             </label>
             {% endfor %}
@@ -73,7 +82,7 @@
     </section>
     {% endfor %}
 
-    <button type="submit" class="submit">Submit assessment</button>
+    <button type="submit" class="submit">{% if existing %}Resubmit updated assessment{% else %}Submit assessment{% endif %}</button>
   </form>
 </div>
 
@@ -84,6 +93,12 @@ function toggleDim(dimId, isNA) {
   var inputs = block.querySelectorAll('input');
   inputs.forEach(function(i) { i.disabled = isNA; });
 }
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.na-toggle input[type=checkbox]:checked').forEach(function(cb) {
+    var dimId = cb.name.replace(/^na_/, '');
+    toggleDim(dimId, true);
+  });
+});
 </script>
 </body>
 </html>

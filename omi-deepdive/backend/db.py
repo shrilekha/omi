@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     answers_json           TEXT NOT NULL,
     tools_json             TEXT NOT NULL,
     dimension_scores_json  TEXT NOT NULL,
+    na_dims_json           TEXT NOT NULL DEFAULT '[]',
     overall_score          REAL,
     maturity_band          TEXT,
     submitted_at           DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -188,6 +189,27 @@ def get_all_organizations():
         conn.close()
 
 
+def count_organizations():
+    conn = _get_conn()
+    try:
+        row = _fetchone_dict(conn, "SELECT COUNT(*) AS n FROM organizations", ())
+        return row['n'] if row else 0
+    finally:
+        conn.close()
+
+
+def get_organizations_page(limit, offset):
+    conn = _get_conn()
+    try:
+        return _fetchall_dict(
+            conn,
+            "SELECT * FROM organizations ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (limit, offset),
+        )
+    finally:
+        conn.close()
+
+
 def get_app(app_id):
     conn = _get_conn()
     try:
@@ -247,6 +269,7 @@ def get_latest_submission(app_id):
             row['answers'] = json.loads(row['answers_json'])
             row['tools'] = json.loads(row['tools_json'])
             row['dimension_scores'] = json.loads(row['dimension_scores_json'])
+            row['na_dims'] = json.loads(row['na_dims_json'] or '[]')
         return row
     finally:
         conn.close()
@@ -265,6 +288,7 @@ def save_submission(app_id, data):
         'answers_json': json.dumps(data.get('answers', {})),
         'tools_json': json.dumps(data.get('tools', {})),
         'dimension_scores_json': json.dumps(data.get('dimension_scores', {})),
+        'na_dims_json': json.dumps(data.get('na_dims', [])),
         'overall_score': data.get('overall_score'),
         'maturity_band': data.get('maturity_band', ''),
     }

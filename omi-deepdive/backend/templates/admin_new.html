@@ -58,6 +58,18 @@
         {% endfor %}
       </tbody>
     </table>
+
+    {% if total_pages > 1 %}
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:16px;">
+      {% if page > 1 %}
+        <a href="{{ url_for('admin_new', page=page - 1) }}">&larr; Newer</a>
+      {% else %}<span></span>{% endif %}
+      <span class="sub">Page {{ page }} of {{ total_pages }}</span>
+      {% if page < total_pages %}
+        <a href="{{ url_for('admin_new', page=page + 1) }}">Older &rarr;</a>
+      {% else %}<span></span>{% endif %}
+    </div>
+    {% endif %}
   </section>
   {% endif %}
 </div>

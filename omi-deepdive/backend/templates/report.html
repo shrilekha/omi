@@ -9,9 +9,12 @@
 <body>
 <div class="wrap wide">
   <header class="page-header">
-    <span class="badge">omi-deepdive · consolidated report</span>
+    <span class="badge no-print">omi-deepdive · consolidated report</span>
     <h1>{{ org.name }}</h1>
     <p class="sub">{{ rows|length }} app(s) assessed. This link is confidential — share only with the account lead and named stakeholders.</p>
+    <button class="submit no-print" onclick="window.print()" style="width:auto; padding:10px 24px;">
+      Print / Save as PDF
+    </button>
   </header>
 
   <section class="card">
