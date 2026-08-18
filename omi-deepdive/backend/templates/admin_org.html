@@ -23,44 +23,44 @@
   <section class="card">
     <h2>Consolidated report link</h2>
     <p class="sub">Share only with the account lead / leadership. Updates live as app owners submit.</p>
-    <input type="text" readonly value="{{ base_url }}/report/{{ org.report_token }}" onclick="this.select()">
+    <div class="link-row">
+      <input type="text" readonly value="{{ base_url }}/report/{{ org.report_token }}" onclick="this.select()">
+      <a href="{{ base_url }}/report/{{ org.report_token }}" target="_blank" rel="noopener" class="btn-open">Open &#8599;</a>
+    </div>
   </section>
 
   <section class="card">
     <h2>Per-app links</h2>
-    <p class="sub">Send each app owner only their own app's link. They can revise their answers at any time by reopening the same link and resubmitting — the newest submission is what shows in the report, so no reset is needed just to let someone redo their own response.</p>
+    <p class="sub">
+      Send each app owner only their own app's link. They can revise their answers at any
+      time by reopening the same link and resubmitting — the newest submission is what shows
+      in the report, so <strong>Reset</strong> is only for clearing a response without
+      waiting on them (e.g. a bad test submission), not the normal way to let someone redo
+      their own answers. Links open in a new tab so you don't lose your place here.
+    </p>
     {% for a in apps %}
-    <label class="block">{{ a.name }}
+    <div class="app-link-row">
+      <span class="app-link-name">{{ a.name }}</span>
       <input type="text" readonly value="{{ base_url }}/app/{{ a.access_token }}" onclick="this.select()">
-    </label>
+      <a href="{{ base_url }}/app/{{ a.access_token }}" target="_blank" rel="noopener" class="btn-open">Open &#8599;</a>
+      <form method="POST" action="{{ url_for('admin_reset_app', app_id=a.id) }}"
+            onsubmit="return confirm('Permanently delete all of {{ a.name }}\'s stored response(s)? This cannot be undone, and the app will go back to \'Not yet submitted\'.');">
+        <button type="submit" class="btn-danger" title="Permanently deletes this app's stored response(s)">Reset</button>
+      </form>
+    </div>
     {% endfor %}
   </section>
 
   <section class="card danger-zone">
-    <h2>Reset</h2>
+    <h2>Reset entire organization</h2>
     <p class="sub">
-      Use this only to clear a response back to "Not yet submitted" — e.g. a bad
-      test submission — without waiting for the app owner to resubmit. This
-      permanently deletes the stored response(s); it cannot be undone.
+      Permanently deletes the stored response(s) for <strong>every app above</strong>,
+      returning all of them to "Not yet submitted". This cannot be undone.
     </p>
-
-    {% for a in apps %}
-    <div class="reset-row">
-      <span>{{ a.name }}</span>
-      <form method="POST" action="{{ url_for('admin_reset_app', app_id=a.id) }}"
-            onsubmit="return confirm('Permanently delete {{ a.name }}\'s response(s)? This cannot be undone.');">
-        <button type="submit" class="btn-danger">Reset this app</button>
-      </form>
-    </div>
-    {% endfor %}
-
-    <div class="reset-row" style="margin-top:16px; border-top:2px solid var(--border); padding-top:16px;">
-      <span><strong>Reset entire organization</strong> — clears every app above at once.</span>
-      <form method="POST" action="{{ url_for('admin_reset_org', org_id=org.id) }}"
-            onsubmit="return confirm('Permanently delete ALL responses for {{ org.name }}? This cannot be undone.');">
-        <button type="submit" class="btn-danger">Reset organization</button>
-      </form>
-    </div>
+    <form method="POST" action="{{ url_for('admin_reset_org', org_id=org.id) }}"
+          onsubmit="return confirm('Permanently delete ALL stored responses for every app in {{ org.name }}? This cannot be undone.');">
+      <button type="submit" class="btn-danger">Reset organization</button>
+    </form>
   </section>
 </div>
 </body>
