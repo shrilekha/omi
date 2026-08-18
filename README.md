@@ -111,6 +111,9 @@ OMI/
 │   └── requirements.txt
 ├── database/
 │   └── schema.sql          # MySQL schema for production
+├── scripts/
+│   └── export_questions_to_excel.py  # Dumps all questions/options to OMI_Questions_Review.xlsx
+├── OMI_Questions_Review.xlsx  # Generated — for content review, re-run the script above after edits
 ├── .env.example            # All config variables with comments
 └── README.md
 ```
@@ -119,12 +122,19 @@ OMI/
 
 ## Editing questions
 
-All question content lives in `frontend/questions.js`. No other file needs to change.
+All scored question content lives in `frontend/questions.js`. No other file needs to change for wording/option edits within an existing question.
 
-- Domains 2–4 (Application Performance, Infrastructure, Log Management) are in `appQuestions`, `infraQuestions`, and `logQuestions` — shared across all sectors.
-- Domains 1 and 5 have sector variants in `txnVariants` and `compVariants`. Each key is a sector archetype (`bfsi_regulated`, `payments`, `government`, `technology`).
-- The `sectorArchetypeMap` object maps the registration sector dropdown to the right archetype.
-- Each question has exactly 5 answer options with scores 1–5 (1 = least mature, 5 = most mature).
+- Domains 2–4 (Application Performance, Infrastructure, Log Management) are in `appQuestions`, `infraQuestions`, and `logQuestions` — shared across all sectors and countries.
+- Domains 1 and 5 (Business & Transaction Observability, Compliance & Audit Readiness) have sector **and country** variants in `txnVariants` and `compVariants`, because the transactions and regulations in play genuinely differ by market. Each key is a sector archetype: `bfsi_regulated`, `payments`, `government`, `technology`, `retail`, `telecom`, `energy`, `manufacturing`.
+- Country variants use the suffix convention `{sector}`, `{sector}_gcc`, `{sector}_intl`:
+  - *(no suffix)* — India (default), India-specific regulatory references (RBI/SEBI, NPCI, TRAI, CERC/SERC, …)
+  - `_gcc` — UAE / Saudi Arabia / wider GCC — **BFSI only** (CBUAE, SAMA); other sectors fall back to `_intl` in the Gulf
+  - `_intl` — Singapore, UK, US, Australia, other international (MAS TRM, FCA, APRA CPS 230, FFIEC, Ofcom/FCC, …)
+  - `technology` and `manufacturing` are treated as country-agnostic (their standards are already international) and have no `_intl`/`_gcc` variant
+  - `resolveArchetype()` in `questions.js` does the sector+country → archetype resolution; `getSections()` assembles the final 25-question set from it
+- The `sectorArchetypeMap` object maps the registration sector dropdown to the right base archetype.
+- Each question has exactly 5 **scored** answer options, 1–5 (1 = least mature, 5 = most mature). A 6th "Not sure / not applicable to my role" option is appended to every question by the assessment UI itself (`frontend/index.html`, `renderSection()`) — it's universal, not per-question, so it lives in code rather than in `questions.js`, and is excluded from scoring rather than counted as a low score.
+- After editing questions, re-run `python scripts/export_questions_to_excel.py` to refresh `OMI_Questions_Review.xlsx` for content review — it reads directly from `questions.js` so it can drift out of sync if regenerated only some of the time.
 
 ---
 
