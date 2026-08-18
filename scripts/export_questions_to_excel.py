@@ -149,8 +149,13 @@ def load_questions():
 HEADER = [
     'Domain', 'Sector / Country Variant', 'Question ID', 'Question Text', 'Hint',
     'Option 1 (score 1)', 'Option 2 (score 2)', 'Option 3 (score 3)',
-    'Option 4 (score 4)', 'Option 5 (score 5)',
+    'Option 4 (score 4)', 'Option 5 (score 5)', 'Option 6 (Not sure / N-A)',
 ]
+
+# Not part of questions.js — the assessment UI (frontend/index.html, renderSection())
+# appends this option to every question at render time, excluded from scoring.
+# Keep this in sync with that literal string if it's ever reworded.
+NA_OPTION_TEXT = "Not sure / not applicable to my role — I don’t have visibility into this"
 
 HEADER_FILL = PatternFill(start_color='0F1923', end_color='0F1923', fill_type='solid')
 HEADER_FONT = Font(color='FFFFFF', bold=True)
@@ -162,6 +167,7 @@ def question_row(domain, variant, q):
     return [
         domain, variant, q['id'], q['text'], q.get('hint', ''),
         opts.get(1, ''), opts.get(2, ''), opts.get(3, ''), opts.get(4, ''), opts.get(5, ''),
+        NA_OPTION_TEXT,
     ]
 
 
@@ -176,7 +182,7 @@ def build_sheet(ws, rows):
     for row in ws.iter_rows(min_row=2):
         for cell in row:
             cell.alignment = WRAP
-    widths = [26, 22, 10, 46, 40, 34, 34, 34, 34, 34]
+    widths = [26, 22, 10, 46, 40, 34, 34, 34, 34, 34, 34]
     for col, w in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(col)].width = w
     ws.freeze_panes = 'A2'
