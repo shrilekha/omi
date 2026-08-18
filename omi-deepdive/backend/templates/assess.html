@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>omi-deepdive — {{ app_row.name }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap">
+  <header class="page-header">
+    <span class="badge">omi-deepdive · per-app E2E observability assessment</span>
+    <h1>{{ app_row.name }}</h1>
+    <p class="sub">{{ app_row.org_name }} — answer for this application specifically, not for the organization as a whole.</p>
+  </header>
+
+  <form method="POST" action="">
+    <section class="card">
+      <h2>About you</h2>
+      <div class="grid3">
+        <label>Your name
+          <input type="text" name="respondent_name" required>
+        </label>
+        <label>Your email
+          <input type="email" name="respondent_email" required>
+        </label>
+        <label>Your role
+          <input type="text" name="respondent_role" placeholder="e.g. App Owner, Engineering Lead">
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Ownership &amp; blockers</h2>
+      {% for oq in ownership %}
+      <label class="block">{{ oq.text }}
+        <textarea name="{{ oq.id }}" rows="2"></textarea>
+      </label>
+      {% endfor %}
+    </section>
+
+    {% for dim in dimensions %}
+    <section class="card dimension">
+      <h2>{{ dim.name }} <span class="weight">({{ dim.weight }}% weight)</span></h2>
+
+      <label class="block tool-question">{{ dim.tool_question.text }}
+        <input type="text" name="{{ dim.tool_question.id }}" placeholder="e.g. VuNet, Dynatrace, SolarWinds, in-house script, none">
+      </label>
+
+      {% if dim.na_allowed %}
+      <label class="na-toggle">
+        <input type="checkbox" name="na_{{ dim.id }}" onclick="toggleDim('{{ dim.id }}', this.checked)">
+        {{ dim.na_label }}
+      </label>
+      {% endif %}
+
+      <div id="dim-{{ dim.id }}-questions">
+        {% for q in dim.questions %}
+        <div class="question">
+          <p class="qtext">{{ q.text }}</p>
+          {% if q.hint %}<p class="hint">{{ q.hint }}</p>{% endif %}
+          <div class="options">
+            {% for opt in q.options %}
+            <label class="option">
+              <input type="radio" name="q_{{ q.id }}" value="{{ loop.index }}">
+              <span><strong>{{ loop.index }}.</strong> {{ opt }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+
+    <button type="submit" class="submit">Submit assessment</button>
+  </form>
+</div>
+
+<script>
+function toggleDim(dimId, isNA) {
+  var block = document.getElementById('dim-' + dimId + '-questions');
+  block.style.opacity = isNA ? '0.35' : '1';
+  var inputs = block.querySelectorAll('input');
+  inputs.forEach(function(i) { i.disabled = isNA; });
+}
+</script>
+</body>
+</html>

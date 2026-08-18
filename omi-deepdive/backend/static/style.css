@@ -1,0 +1,142 @@
+:root {
+  --ink: #101828;
+  --sub: #667085;
+  --bg: #f7f8fb;
+  --card: #ffffff;
+  --border: #e4e7ec;
+  --accent: #3538cd;
+  --accent-bg: #eef0ff;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  margin: 0;
+  padding: 32px 16px 80px;
+}
+
+.wrap { max-width: 760px; margin: 0 auto; }
+.wrap.wide { max-width: 1100px; }
+.wrap.narrow { max-width: 520px; margin-top: 10vh; }
+
+.badge {
+  display: inline-block;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-bottom: 12px;
+}
+
+.page-header h1 { margin: 0 0 4px; font-size: 28px; }
+.sub { color: var(--sub); font-size: 14px; margin: 0 0 16px; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.card.center { text-align: center; }
+
+h2 { font-size: 16px; margin: 0 0 16px; }
+h3 { font-size: 13px; margin: 0 0 6px; color: var(--sub); text-transform: uppercase; letter-spacing: .03em; }
+
+label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+label.block { margin-bottom: 16px; }
+input[type=text], input[type=email], textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 400;
+}
+
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+@media (max-width: 640px) { .grid3, .grid2 { grid-template-columns: 1fr; } }
+
+.dimension { border-left: 3px solid var(--accent); }
+.weight { color: var(--sub); font-weight: 400; font-size: 13px; }
+.tool-question input { max-width: 480px; }
+
+.na-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--sub);
+  margin-bottom: 16px;
+}
+.na-toggle input { width: auto; margin: 0; }
+
+.question { padding: 14px 0; border-top: 1px solid var(--border); }
+.question:first-of-type { border-top: none; }
+.qtext { font-weight: 600; font-size: 14px; margin: 0 0 4px; }
+.hint { color: var(--sub); font-size: 12px; margin: 0 0 10px; font-style: italic; }
+.options { display: flex; flex-direction: column; gap: 6px; }
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 400;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.option:hover { background: var(--bg); }
+.option input { width: auto; margin-top: 3px; }
+
+.submit {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+}
+
+.score-circle {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 32px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  margin: 16px auto;
+}
+.band { font-weight: 600; margin: 0 0 12px; }
+
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th { color: var(--sub); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .02em; }
+.heatmap td { text-align: center; font-weight: 700; }
+.heatmap .app-name { text-align: left; font-weight: 600; white-space: normal; }
+.overall-cell { font-weight: 600; white-space: normal; }
+
+.cell-none { background: #f2f4f7; color: var(--sub); font-weight: 400; }
+.cell-na   { background: #f2f4f7; color: var(--sub); font-weight: 400; }
+.cell-low  { background: #fde2e2; color: #b42318; }
+.cell-mid  { background: #fef0c7; color: #b54708; }
+.cell-good { background: #d1f4e0; color: #05603a; }
+.cell-great{ background: #baf4d6; color: #05603a; }
+
+.detail-table td, .detail-table th { white-space: normal; }
+.app-detail h2 { border-top: 1px solid var(--border); padding-top: 20px; }

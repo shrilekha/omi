@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>omi-deepdive — {{ org.name }} consolidated report</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap wide">
+  <header class="page-header">
+    <span class="badge">omi-deepdive · consolidated report</span>
+    <h1>{{ org.name }}</h1>
+    <p class="sub">{{ rows|length }} app(s) assessed. This link is confidential — share only with the account lead and named stakeholders.</p>
+  </header>
+
+  <section class="card">
+    <h2>Coverage heatmap</h2>
+    <div class="table-scroll">
+    <table class="heatmap">
+      <thead>
+        <tr>
+          <th>App</th>
+          {% for dim in dimensions %}<th>{{ dim.name }}</th>{% endfor %}
+          <th>Overall</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="app-name">{{ r.app.name }}</td>
+          {% for dim in dimensions %}
+            {% set score = r.submission.dimension_scores.get(dim.id) if r.submission else None %}
+            <td class="
+              {%- if not r.submission %} cell-none
+              {%- elif score is none %} cell-na
+              {%- elif score < 45 %} cell-low
+              {%- elif score < 65 %} cell-mid
+              {%- elif score < 82 %} cell-good
+              {%- else %} cell-great
+              {%- endif -%}
+            ">
+              {%- if not r.submission %}—
+              {%- elif score is none %}N/A
+              {%- else %}{{ score|round(0, 'floor')|int }}%{%- endif -%}
+            </td>
+          {% endfor %}
+          <td class="overall-cell">
+            {% if r.submission %}{{ r.submission.overall_score }} · {{ r.submission.maturity_band }}{% else %}Not yet submitted{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  {% for r in rows %}
+  <section class="card app-detail">
+    <h2>{{ r.app.name }}</h2>
+    {% if not r.submission %}
+      <p class="sub">No response submitted yet for this app.</p>
+    {% else %}
+      <p class="sub">Submitted by {{ r.submission.respondent_name }} ({{ r.submission.respondent_role }}) — {{ r.submission.submitted_at }}</p>
+
+      <table class="detail-table">
+        <thead><tr><th>Dimension</th><th>Score</th><th>Current tool/vendor</th></tr></thead>
+        <tbody>
+        {% for dim in dimensions %}
+          {% set score = r.submission.dimension_scores.get(dim.id) %}
+          <tr>
+            <td>{{ dim.name }}</td>
+            <td>{% if score is none %}N/A{% else %}{{ score }}%{% endif %}</td>
+            <td>{{ r.submission.tools.get(dim.id) or '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="grid2">
+        <div>
+          <h3>Observability owner</h3>
+          <p>{{ r.submission.owner_contact or '—' }}</p>
+        </div>
+        <div>
+          <h3>Biggest blocker cited</h3>
+          <p>{{ r.submission.biggest_blocker or '—' }}</p>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+</body>
+</html>
