@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>omi-deepdive — {{ org.name }} links</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap">
+  <header class="page-header">
+    <span class="badge">omi-deepdive · admin</span>
+    <h1>{{ org.name }}</h1>
+    <p class="sub">
+      <a href="{{ url_for('admin_orgs') }}">&larr; All organizations</a>
+      &nbsp;·&nbsp;
+      <a href="{{ url_for('admin_new') }}">+ New organization</a>
+      &nbsp;·&nbsp;
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      {% if session.admin_role == 'admin' %}&nbsp;·&nbsp;<a href="{{ url_for('admin_users_page') }}">Manage users</a>{% endif %}
+      &nbsp;·&nbsp;
+      {% if session.admin_email %}Signed in as {{ session.admin_email }} &nbsp;·&nbsp; {% endif %}
+      <a href="{{ url_for('admin_logout') }}">Log out</a>
+    </p>
+  </header>
+
+  <section class="card">
+    <h2>Consolidated report link</h2>
+    <p class="sub">Share only with the account lead / leadership. Updates live as app owners submit.</p>
+    <div class="link-row">
+      <input type="text" readonly value="{{ base_url }}/report/{{ org.report_token }}" onclick="this.select()">
+      <a href="{{ base_url }}/report/{{ org.report_token }}" target="_blank" rel="noopener" class="btn-open">Open &#8599;</a>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Per-app links</h2>
+    <p class="sub">
+      Send each app owner only their own app's link. They can revise their answers at any
+      time by reopening the same link and resubmitting — the newest submission is what shows
+      in the report, so <strong>Reset</strong> is only for clearing a response without
+      waiting on them (e.g. a bad test submission), not the normal way to let someone redo
+      their own answers. Links open in a new tab so you don't lose your place here.
+    </p>
+    {% for a in apps %}
+    <div class="app-link-row">
+      <span class="app-link-name">{{ a.name }}</span>
+      <input type="text" readonly value="{{ base_url }}/app/{{ a.access_token }}" onclick="this.select()">
+      <a href="{{ base_url }}/app/{{ a.access_token }}" target="_blank" rel="noopener" class="btn-open">Open &#8599;</a>
+      <form method="POST" action="{{ url_for('admin_reset_app', app_id=a.id) }}"
+            onsubmit="return confirm('Permanently delete all of {{ a.name }}\'s stored response(s)? This cannot be undone, and the app will go back to \'Not yet submitted\'.');">
+        <button type="submit" class="btn-danger" title="Permanently deletes this app's stored response(s)">Reset</button>
+      </form>
+    </div>
+    {% endfor %}
+  </section>
+
+  <section class="card danger-zone">
+    <h2>Reset entire organization</h2>
+    <p class="sub">
+      Permanently deletes the stored response(s) for <strong>every app above</strong>,
+      returning all of them to "Not yet submitted". This cannot be undone.
+    </p>
+    <form method="POST" action="{{ url_for('admin_reset_org', org_id=org.id) }}"
+          onsubmit="return confirm('Permanently delete ALL stored responses for every app in {{ org.name }}? This cannot be undone.');">
+      <button type="submit" class="btn-danger">Reset organization</button>
+    </form>
+  </section>
+</div>
+</body>
+</html>

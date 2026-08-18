@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>omi-deepdive — {{ app_row.name }} submission</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap">
+  <header class="page-header">
+    <span class="badge no-print">omi-deepdive</span>
+    <h1>{% if just_submitted %}Submitted{% else %}Your submission{% endif %} — {{ app_row.name }}</h1>
+    <p class="sub">{{ app_row.org_name }}</p>
+  </header>
+
+  {% set band_class_map = {'Reactive': 'low', 'Aware': 'low', 'Structured': 'mid', 'Proactive': 'good', 'Adaptive': 'great'} %}
+  {% set overall_band = band_class_map.get(result.maturity_band, 'mid') %}
+  <section class="card center">
+    <div class="score-circle sc-{{ overall_band }}">{{ result.overall_score }}</div>
+    <p class="band sc-{{ overall_band }}">{{ result.maturity_band }}</p>
+    <p class="sub">
+      {% if just_submitted %}
+        Recorded for {{ app_row.name }} and included in {{ app_row.org_name }}'s consolidated report.
+        You can come back to <strong>this same link</strong> at any time to revise your answers —
+        reopening it will show your latest response pre-filled so you can edit on top of it.
+      {% else %}
+        Submitted {{ result.submitted_at }} by {{ result.respondent_name }} ({{ result.respondent_role }}).
+      {% endif %}
+    </p>
+    <button class="submit no-print" onclick="window.print()" style="width:auto; padding:10px 24px;">
+      Print / Save as PDF
+    </button>
+    {% if not just_submitted %}
+    <p class="sub no-print" style="margin-top:12px;">
+      <a href="{{ url_for('assess', token=app_row.access_token) }}">&larr; Back to edit this response</a>
+    </p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Ownership &amp; blockers</h2>
+    <div class="grid2">
+      <div>
+        <h3>Observability owner</h3>
+        <p>{{ result.owner_contact or '—' }}</p>
+      </div>
+      <div>
+        <h3>Biggest blocker cited</h3>
+        <p>{{ result.biggest_blocker or '—' }}</p>
+      </div>
+    </div>
+  </section>
+
+  {% for dim in dimensions %}
+  {% set is_na = dim.id in result.na_dims %}
+  {% set dscore = result.dimension_scores.get(dim.id) %}
+  {% set band = 'na' if (is_na or dscore is none) else ('low' if dscore < 45 else 'mid' if dscore < 65 else 'good' if dscore < 82 else 'great') %}
+  <section class="card dimension dim-{{ band }}">
+    <h2>
+      {{ dim.name }}
+      <span class="dim-badge dim-badge-{{ band }}">{% if is_na %}N/A{% elif dscore is none %}Not answered{% else %}{{ dscore|round(0, 'floor')|int }}%{% endif %}</span>
+    </h2>
+    <div class="tool-line">Current tool/vendor: <strong>{{ result.tools.get(dim.id) or 'None reported' }}</strong></div>
+
+    {% if not is_na %}
+    <table class="detail-table">
+      <thead><tr><th>Question</th><th>Answer given</th></tr></thead>
+      <tbody>
+        {% for q in dim.questions %}
+        {% set score = result.answers.get(q.id) %}
+        <tr>
+          <td>{{ q.text }}</td>
+          <td>
+            {% if score %}
+            <span class="answer-cell"><span class="score-chip score-chip-{{ score }}">{{ score }}</span> {{ q.options[score - 1] }}</span>
+            {% else %}<em>Not answered</em>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+<script>
+(function() {
+  var pdfFilename = {{ pdf_filename|tojson }};
+  var originalTitle = document.title;
+  window.addEventListener('beforeprint', function() { document.title = pdfFilename; });
+  window.addEventListener('afterprint', function() { document.title = originalTitle; });
+})();
+</script>
+</body>
+</html>

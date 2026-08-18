@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>omi-deepdive — New Organization</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap">
+  <header class="page-header">
+    <span class="badge">omi-deepdive · admin</span>
+    <h1>Admin</h1>
+    <p class="sub">
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      {% if session.admin_role == 'admin' %}&nbsp;·&nbsp;<a href="{{ url_for('admin_users_page') }}">Manage users</a>{% endif %}
+      &nbsp;·&nbsp;
+      {% if session.admin_email %}Signed in as {{ session.admin_email }} &nbsp;·&nbsp; {% endif %}
+      <a href="{{ url_for('admin_logout') }}">Log out</a>
+    </p>
+  </header>
+
+  <nav class="tab-nav">
+    <a href="{{ url_for('admin_new') }}" class="active">Create organization</a>
+    <a href="{{ url_for('admin_orgs') }}">Existing organizations</a>
+  </nav>
+
+  {% if error %}
+  <section class="card" style="border-color:#fda29b;">
+    <p class="sub" style="color:#b42318; margin:0;">{{ error }}</p>
+  </section>
+  {% endif %}
+
+  <form method="POST">
+    <section class="card">
+      <h2>Organization</h2>
+      <label>Organization name
+        <input type="text" name="org_name" placeholder="e.g. IndusInd Bank" required>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Apps to assess</h2>
+      <p class="sub">Leave any of these blank — only filled-in rows become apps. To add an app to an organization created earlier, contact an engineer.</p>
+      <div class="grid2">
+        {% for i in range(1, 11) %}
+        <label>App {{ i }} name
+          <input type="text" name="app_name_{{ i }}">
+        </label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <button type="submit" class="submit">Create &amp; generate links</button>
+  </form>
+</div>
+</body>
+</html>

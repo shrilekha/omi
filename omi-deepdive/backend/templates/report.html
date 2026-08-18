@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>omi-deepdive — {{ org.name }} consolidated report</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap wide">
+  <header class="page-header">
+    <span class="badge no-print">omi-deepdive · consolidated report</span>
+    <h1>{{ org.name }}</h1>
+    <p class="sub">{{ rows|length }} app(s) assessed. This link is confidential — share only with the account lead and named stakeholders.</p>
+    <button class="submit no-print" onclick="window.print()" style="width:auto; padding:10px 24px;">
+      Print / Save as PDF
+    </button>
+  </header>
+
+  <section class="card">
+    <h2>Coverage heatmap</h2>
+    <div class="table-scroll">
+    <table class="heatmap heatmap-transposed">
+      <thead>
+        <tr>
+          <th>Capability</th>
+          {% for r in rows %}<th>{{ r.app.name }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for dim in dimensions %}
+        <tr>
+          <td class="app-name">{{ dim.name }}</td>
+          {% for r in rows %}
+            {% set score = r.submission.dimension_scores.get(dim.id) if r.submission else None %}
+            <td class="
+              {%- if not r.submission %} cell-none
+              {%- elif score is none %} cell-na
+              {%- elif score < 45 %} cell-low
+              {%- elif score < 65 %} cell-mid
+              {%- elif score < 82 %} cell-good
+              {%- else %} cell-great
+              {%- endif -%}
+            ">
+              {%- if not r.submission %}—
+              {%- elif score is none %}N/A
+              {%- else %}{{ score|round(0, 'floor')|int }}%{%- endif -%}
+            </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+        <tr class="overall-row">
+          <td class="app-name">Overall</td>
+          {% for r in rows %}
+          <td class="overall-cell">
+            {% if r.submission %}{{ r.submission.overall_score }} · {{ r.submission.maturity_band }}{% else %}Not yet submitted{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  {% for r in rows %}
+  <section class="card app-detail">
+    <h2>{{ r.app.name }}</h2>
+    {% if not r.submission %}
+      <p class="sub">No response submitted yet for this app.</p>
+    {% else %}
+      <p class="sub">Submitted by {{ r.submission.respondent_name }} ({{ r.submission.respondent_role }}) — {{ r.submission.submitted_at }}</p>
+
+      <table class="detail-table">
+        <thead><tr><th>Dimension</th><th>Score</th><th>Current tool/vendor</th></tr></thead>
+        <tbody>
+        {% for dim in dimensions %}
+          {% set score = r.submission.dimension_scores.get(dim.id) %}
+          {% set band = 'na' if score is none else ('low' if score < 45 else 'mid' if score < 65 else 'good' if score < 82 else 'great') %}
+          <tr>
+            <td>{{ dim.name }}</td>
+            <td><span class="dim-badge dim-badge-{{ band }}">{% if score is none %}N/A{% else %}{{ score|round(0,'floor')|int }}%{% endif %}</span></td>
+            <td>{{ r.submission.tools.get(dim.id) or '—' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="grid2">
+        <div>
+          <h3>Observability owner</h3>
+          <p>{{ r.submission.owner_contact or '—' }}</p>
+        </div>
+        <div>
+          <h3>Biggest blocker cited</h3>
+          <p>{{ r.submission.biggest_blocker or '—' }}</p>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+<script>
+(function() {
+  var pdfFilename = {{ pdf_filename|tojson }};
+  var originalTitle = document.title;
+  window.addEventListener('beforeprint', function() { document.title = pdfFilename; });
+  window.addEventListener('afterprint', function() { document.title = originalTitle; });
+})();
+</script>
+</body>
+</html>

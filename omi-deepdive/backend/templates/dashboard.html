@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>omi-deepdive — Dashboard</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap">
+  <header class="page-header">
+    <span class="badge">omi-deepdive · dashboard</span>
+    <h1>Organizations</h1>
+    <p class="sub">
+      Read-only view — jump straight to any organization's consolidated report.
+      {% if session.admin_role == 'admin' or session.admin_role == 'assessment_manager' %}
+        &nbsp;·&nbsp;<a href="{{ url_for('admin_new') }}">Admin console</a>
+      {% endif %}
+      &nbsp;·&nbsp;
+      {% if session.admin_email %}Signed in as {{ session.admin_email }} ({{ session.admin_role }}) &nbsp;·&nbsp; {% endif %}
+      <a href="{{ url_for('admin_logout') }}">Log out</a>
+    </p>
+  </header>
+
+  <section class="card">
+    {% if orgs %}
+    <table>
+      <thead><tr><th>Organization</th><th>Created</th><th></th></tr></thead>
+      <tbody>
+        {% for o in orgs %}
+        <tr>
+          <td>{{ o.name }}</td>
+          <td>{{ o.created_at }}</td>
+          <td><a href="{{ url_for('report', report_token=o.report_token) }}" target="_blank" rel="noopener" class="btn-open">Open report &#8599;</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if total_pages > 1 %}
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:16px;">
+      {% if page > 1 %}
+        <a href="{{ url_for('dashboard', page=page - 1) }}">&larr; Newer</a>
+      {% else %}<span></span>{% endif %}
+      <span class="sub">Page {{ page }} of {{ total_pages }}</span>
+      {% if page < total_pages %}
+        <a href="{{ url_for('dashboard', page=page + 1) }}">Older &rarr;</a>
+      {% else %}<span></span>{% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <p class="sub">No organizations yet.</p>
+    {% endif %}
+  </section>
+</div>
+</body>
+</html>
