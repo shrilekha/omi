@@ -2,6 +2,7 @@ import os
 import uuid
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, abort, session
+from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
@@ -17,6 +18,13 @@ from questions import DIMENSIONS, OWNERSHIP_QUESTIONS
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-change-in-prod')
 ADMIN_KEY = os.getenv('ADMIN_KEY', 'changeme-admin-password')
+
+# Trust X-Forwarded-Host/-Proto/-For/-Port from the reverse proxy in front of
+# this app (GitHub Codespaces' port forwarding, Nginx in production, etc.) so
+# request.url_root — used to build the links shown on /admin/org/<id> — reflects
+# the URL a browser can actually reach, not whatever Host header the proxy
+# passes through to this container.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 
 def require_admin(view):
