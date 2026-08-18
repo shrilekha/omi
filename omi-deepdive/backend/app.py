@@ -10,7 +10,8 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 from db import (
     init_db, get_app_by_token, get_org_by_report_token, get_apps_for_org,
     get_latest_submission, save_submission, create_organization, create_app,
-    get_organization, get_all_organizations,
+    get_organization, get_all_organizations, get_app, delete_submissions_for_app,
+    delete_submissions_for_org,
 )
 from scoring import compute_scores
 from questions import DIMENSIONS, OWNERSHIP_QUESTIONS
@@ -38,11 +39,14 @@ def require_admin(view):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return redirect(url_for('admin_login'))
 
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
+    if request.method == 'GET' and session.get('admin'):
+        return redirect(url_for('admin_new'))
+
     error = None
     if request.method == 'POST':
         if request.form.get('key') == ADMIN_KEY:
@@ -88,6 +92,26 @@ def admin_org(org_id):
     apps = get_apps_for_org(org_id)
     base_url = request.url_root.rstrip('/')
     return render_template('admin_org.html', org=org, apps=apps, base_url=base_url)
+
+
+@app.route('/admin/app/<int:app_id>/reset', methods=['POST'])
+@require_admin
+def admin_reset_app(app_id):
+    app_row = get_app(app_id)
+    if not app_row:
+        abort(404)
+    delete_submissions_for_app(app_id)
+    return redirect(url_for('admin_org', org_id=app_row['organization_id']))
+
+
+@app.route('/admin/org/<int:org_id>/reset', methods=['POST'])
+@require_admin
+def admin_reset_org(org_id):
+    org = get_organization(org_id)
+    if not org:
+        abort(404)
+    delete_submissions_for_org(org_id)
+    return redirect(url_for('admin_org', org_id=org_id))
 
 
 @app.route('/app/<token>', methods=['GET', 'POST'])

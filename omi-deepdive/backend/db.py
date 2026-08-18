@@ -188,6 +188,42 @@ def get_all_organizations():
         conn.close()
 
 
+def get_app(app_id):
+    conn = _get_conn()
+    try:
+        return _fetchone_dict(conn, "SELECT * FROM apps WHERE id = ?", (app_id,))
+    finally:
+        conn.close()
+
+
+def delete_submissions_for_app(app_id):
+    conn = _get_conn()
+    try:
+        ph = _placeholder()
+        sql = f"DELETE FROM submissions WHERE app_id = {ph}"
+        if ENV == 'production':
+            with conn.cursor() as cur:
+                cur.execute(sql, (app_id,))
+            conn.commit()
+        else:
+            conn.execute(sql, (app_id,))
+            conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_submissions_for_org(organization_id):
+    conn = _get_conn()
+    try:
+        app_ids = [a['id'] for a in _fetchall_dict(
+            conn, "SELECT id FROM apps WHERE organization_id = ?", (organization_id,)
+        )]
+    finally:
+        conn.close()
+    for app_id in app_ids:
+        delete_submissions_for_app(app_id)
+
+
 def get_apps_for_org(organization_id):
     conn = _get_conn()
     try:

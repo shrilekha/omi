@@ -17,19 +17,18 @@
   <section class="card">
     <h2>Coverage heatmap</h2>
     <div class="table-scroll">
-    <table class="heatmap">
+    <table class="heatmap heatmap-transposed">
       <thead>
         <tr>
-          <th>App</th>
-          {% for dim in dimensions %}<th>{{ dim.name }}</th>{% endfor %}
-          <th>Overall</th>
+          <th>Capability</th>
+          {% for r in rows %}<th>{{ r.app.name }}</th>{% endfor %}
         </tr>
       </thead>
       <tbody>
-        {% for r in rows %}
+        {% for dim in dimensions %}
         <tr>
-          <td class="app-name">{{ r.app.name }}</td>
-          {% for dim in dimensions %}
+          <td class="app-name">{{ dim.name }}</td>
+          {% for r in rows %}
             {% set score = r.submission.dimension_scores.get(dim.id) if r.submission else None %}
             <td class="
               {%- if not r.submission %} cell-none
@@ -45,11 +44,16 @@
               {%- else %}{{ score|round(0, 'floor')|int }}%{%- endif -%}
             </td>
           {% endfor %}
+        </tr>
+        {% endfor %}
+        <tr class="overall-row">
+          <td class="app-name">Overall</td>
+          {% for r in rows %}
           <td class="overall-cell">
             {% if r.submission %}{{ r.submission.overall_score }} · {{ r.submission.maturity_band }}{% else %}Not yet submitted{% endif %}
           </td>
+          {% endfor %}
         </tr>
-        {% endfor %}
       </tbody>
     </table>
     </div>

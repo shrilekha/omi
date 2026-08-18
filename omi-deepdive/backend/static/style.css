@@ -138,5 +138,18 @@ th { color: var(--sub); font-weight: 600; font-size: 12px; text-transform: upper
 .cell-good { background: #d1f4e0; color: #05603a; }
 .cell-great{ background: #baf4d6; color: #05603a; }
 
+.overall-row td { border-top: 2px solid var(--ink); font-weight: 700; }
+.overall-row .overall-cell { text-align: center; }
+
 .detail-table td, .detail-table th { white-space: normal; }
+
+.danger-zone { border-color: #fda29b; }
+.danger-zone h2 { color: #b42318; }
+.reset-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--border); }
+.reset-row:first-of-type { border-top: none; }
+.btn-danger {
+  background: #fff; color: #b42318; border: 1px solid #fda29b;
+  padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.btn-danger:hover { background: #fef3f2; }
 .app-detail h2 { border-top: 1px solid var(--border); padding-top: 20px; }
