@@ -24,18 +24,12 @@ body {
 
 .login-wrap { margin-top: 8vh; }
 .login-card { text-align: center; padding: 40px 36px; }
-.login-mark {
-  width: 56px; height: 56px;
-  margin: 0 auto 16px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, var(--accent), #6366f1);
-  color: #fff;
-  font-weight: 800;
-  font-size: 18px;
-  letter-spacing: -.02em;
-  display: flex; align-items: center; justify-content: center;
+.login-card h1 {
+  font-size: 22px;
+  line-height: 1.3;
+  margin: 14px 0 10px;
+  letter-spacing: -.01em;
 }
-.login-card h1 { font-size: 24px; margin: 4px 0 6px; }
 .login-card .sub { margin-bottom: 20px; }
 .login-card form { text-align: left; }
 .login-error {
