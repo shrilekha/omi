@@ -1,5 +1,7 @@
 import os
+import re
 import uuid
+from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, abort, session
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -26,6 +28,15 @@ ADMIN_KEY = os.getenv('ADMIN_KEY', 'changeme-admin-password')
 # the URL a browser can actually reach, not whatever Host header the proxy
 # passes through to this container.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+
+
+def _slug(text):
+    return re.sub(r'_+', '_', re.sub(r'[^A-Za-z0-9]+', '_', text or '')).strip('_') or 'file'
+
+
+def _pdf_filename(*parts):
+    stamp = datetime.now().strftime('%d%b%Y')
+    return '_'.join([_slug(p) for p in parts] + [stamp])
 
 
 def require_admin(view):
@@ -143,9 +154,10 @@ def assess(token):
         result['owner_contact'] = request.form.get('owner_contact', '')
         result['biggest_blocker'] = request.form.get('biggest_blocker', '')
         save_submission(app_row['id'], result)
+        pdf_filename = _pdf_filename(app_row['name'], app_row['org_name'])
         return render_template(
             'submission_summary.html', app_row=app_row, result=result, just_submitted=True,
-            dimensions=DIMENSIONS,
+            dimensions=DIMENSIONS, pdf_filename=pdf_filename,
         )
 
     existing = get_latest_submission(app_row['id'])
@@ -163,9 +175,10 @@ def print_submission(token):
     existing = get_latest_submission(app_row['id'])
     if not existing:
         abort(404)
+    pdf_filename = _pdf_filename(app_row['name'], app_row['org_name'])
     return render_template(
         'submission_summary.html', app_row=app_row, result=existing, just_submitted=False,
-        dimensions=DIMENSIONS,
+        dimensions=DIMENSIONS, pdf_filename=pdf_filename,
     )
 
 
@@ -181,7 +194,10 @@ def report(report_token):
         submission = get_latest_submission(a['id'])
         rows.append({'app': a, 'submission': submission})
 
-    return render_template('report.html', org=org, rows=rows, dimensions=DIMENSIONS)
+    pdf_filename = _pdf_filename(org['name'], 'ConsolidatedReport')
+    return render_template(
+        'report.html', org=org, rows=rows, dimensions=DIMENSIONS, pdf_filename=pdf_filename
+    )
 
 
 @app.route('/api/health')

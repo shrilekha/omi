@@ -75,9 +75,10 @@
         <tbody>
         {% for dim in dimensions %}
           {% set score = r.submission.dimension_scores.get(dim.id) %}
+          {% set band = 'na' if score is none else ('low' if score < 45 else 'mid' if score < 65 else 'good' if score < 82 else 'great') %}
           <tr>
             <td>{{ dim.name }}</td>
-            <td>{% if score is none %}N/A{% else %}{{ score }}%{% endif %}</td>
+            <td><span class="dim-badge dim-badge-{{ band }}">{% if score is none %}N/A{% else %}{{ score|round(0,'floor')|int }}%{% endif %}</span></td>
             <td>{{ r.submission.tools.get(dim.id) or '—' }}</td>
           </tr>
         {% endfor %}
@@ -98,5 +99,13 @@
   </section>
   {% endfor %}
 </div>
+<script>
+(function() {
+  var pdfFilename = {{ pdf_filename|tojson }};
+  var originalTitle = document.title;
+  window.addEventListener('beforeprint', function() { document.title = pdfFilename; });
+  window.addEventListener('afterprint', function() { document.title = originalTitle; });
+})();
+</script>
 </body>
 </html>

@@ -14,9 +14,11 @@
     <p class="sub">{{ app_row.org_name }}</p>
   </header>
 
+  {% set band_class_map = {'Reactive': 'low', 'Aware': 'low', 'Structured': 'mid', 'Proactive': 'good', 'Adaptive': 'great'} %}
+  {% set overall_band = band_class_map.get(result.maturity_band, 'mid') %}
   <section class="card center">
-    <div class="score-circle">{{ result.overall_score }}</div>
-    <p class="band">{{ result.maturity_band }}</p>
+    <div class="score-circle sc-{{ overall_band }}">{{ result.overall_score }}</div>
+    <p class="band sc-{{ overall_band }}">{{ result.maturity_band }}</p>
     <p class="sub">
       {% if just_submitted %}
         Recorded for {{ app_row.name }} and included in {{ app_row.org_name }}'s consolidated report.
@@ -51,14 +53,17 @@
   </section>
 
   {% for dim in dimensions %}
-  <section class="card dimension">
-    <h2>{{ dim.name }} <span class="weight">
-      {%- if dim.id in result.na_dims %} — marked not applicable
-      {%- else %}({{ result.dimension_scores.get(dim.id) }}%){%- endif -%}
-    </span></h2>
-    <p class="sub"><strong>Current tool/vendor:</strong> {{ result.tools.get(dim.id) or '—' }}</p>
+  {% set is_na = dim.id in result.na_dims %}
+  {% set dscore = result.dimension_scores.get(dim.id) %}
+  {% set band = 'na' if (is_na or dscore is none) else ('low' if dscore < 45 else 'mid' if dscore < 65 else 'good' if dscore < 82 else 'great') %}
+  <section class="card dimension dim-{{ band }}">
+    <h2>
+      {{ dim.name }}
+      <span class="dim-badge dim-badge-{{ band }}">{% if is_na %}N/A{% else %}{{ dscore|round(0, 'floor')|int }}%{% endif %}</span>
+    </h2>
+    <div class="tool-line">Current tool/vendor: <strong>{{ result.tools.get(dim.id) or 'None reported' }}</strong></div>
 
-    {% if dim.id not in result.na_dims %}
+    {% if not is_na %}
     <table class="detail-table">
       <thead><tr><th>Question</th><th>Answer given</th></tr></thead>
       <tbody>
@@ -66,7 +71,11 @@
         {% set score = result.answers.get(q.id) %}
         <tr>
           <td>{{ q.text }}</td>
-          <td>{% if score %}<strong>{{ score }}.</strong> {{ q.options[score - 1] }}{% else %}<em>Not answered</em>{% endif %}</td>
+          <td>
+            {% if score %}
+            <span class="answer-cell"><span class="score-chip score-chip-{{ score }}">{{ score }}</span> {{ q.options[score - 1] }}</span>
+            {% else %}<em>Not answered</em>{% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -75,5 +84,13 @@
   </section>
   {% endfor %}
 </div>
+<script>
+(function() {
+  var pdfFilename = {{ pdf_filename|tojson }};
+  var originalTitle = document.title;
+  window.addEventListener('beforeprint', function() { document.title = pdfFilename; });
+  window.addEventListener('afterprint', function() { document.title = originalTitle; });
+})();
+</script>
 </body>
 </html>
