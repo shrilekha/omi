@@ -12,6 +12,11 @@ from questions import DIMENSIONS, OWNERSHIP_QUESTIONS
 app = Flask(__name__)
 
 
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
 @app.route('/app/<token>', methods=['GET', 'POST'])
 def assess(token):
     app_row = get_app_by_token(token)

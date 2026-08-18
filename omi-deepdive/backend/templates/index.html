@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>omi-deepdive</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap narrow">
+  <section class="card center">
+    <span class="badge">omi-deepdive</span>
+    <h1>Running.</h1>
+    <p class="sub">
+      There's no general-access page here by design — this tool works entirely
+      through per-app and per-report links.
+    </p>
+    <p class="sub">
+      Run <code>python seed.py "&lt;Organization&gt;" "&lt;App 1&gt;" ["&lt;App 2&gt;" ...]</code>
+      from <code>omi-deepdive/backend</code> to generate:
+    </p>
+    <ul style="text-align:left; display:inline-block; font-size:13px; color:var(--sub);">
+      <li>one <code>/app/&lt;token&gt;</code> link per app, to send to each app owner</li>
+      <li>one <code>/report/&lt;token&gt;</code> link for the consolidated report</li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>
