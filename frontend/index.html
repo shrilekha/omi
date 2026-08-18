@@ -64,7 +64,7 @@
       <div class="step-card">
         <div class="step-num">4</div>
         <h3>Get your report</h3>
-        <p>Scored maturity band, gap analysis, domain radar, and a recommendation map.</p>
+        <p>Scored maturity band, gap analysis, a maturity roadmap, and a recommendation map.</p>
       </div>
     </div>
 
@@ -160,6 +160,15 @@
       </div>
       <p class="error-msg" id="err-location">Please select your sector and country.</p>
 
+      <p style="font-size:12px;color:#6b7280;margin-bottom:0.6rem;font-weight:600;">Which tool covers each domain today? <span style="font-weight:400;">(optional, helps us spot tool-vs-practice mismatches)</span></p>
+      <div class="domain-tools-grid" id="domain-tools-grid">
+        <div class="dt-row"><label>Business &amp; Transaction Observability</label><select data-domain="txn"></select></div>
+        <div class="dt-row"><label>Application Performance</label><select data-domain="app"></select></div>
+        <div class="dt-row"><label>Infrastructure &amp; Network</label><select data-domain="infra"></select></div>
+        <div class="dt-row"><label>Log Management &amp; Data Lake</label><select data-domain="log"></select></div>
+        <div class="dt-row"><label>Compliance &amp; Audit Readiness</label><select data-domain="comp"></select></div>
+      </div>
+
       <button class="cta-btn" onclick="startAssessment()" style="width:100%;">Begin &rarr;</button>
     </div>
   </div>
@@ -200,8 +209,30 @@ var state = {
   sessionId: '',
   section: 0,
   answers: {},
+  domainTools: {},  // { txn: 'Dynatrace', app: 'None / no dedicated tool', ... } — set at registration
   sections: []  // populated by getSections() at start
 };
+
+// ─── TOOLS IN USE, PER DOMAIN ───────────────────────────────────────────────────
+var TOOL_OPTIONS = [
+  'Dynatrace', 'AppDynamics', 'Datadog', 'New Relic', 'Splunk',
+  'ELK / Elastic Stack', 'Grafana / Prometheus', 'SolarWinds / Nagios / Zabbix',
+  'ServiceNow', 'VuNet', 'Spreadsheets / manual tracking'
+];
+var TOOL_NONE = 'None / no dedicated tool';
+var TOOL_UNSURE = 'Not sure';
+
+function populateDomainToolSelects() {
+  document.querySelectorAll('#domain-tools-grid select[data-domain]').forEach(function(sel) {
+    var opts = '<option value="">Select a tool&hellip;</option>';
+    TOOL_OPTIONS.forEach(function(t){ opts += '<option value="' + t + '">' + t + '</option>'; });
+    opts += '<option value="' + TOOL_NONE + '">' + TOOL_NONE + '</option>';
+    opts += '<option value="' + TOOL_UNSURE + '">' + TOOL_UNSURE + '</option>';
+    sel.innerHTML = opts;
+    sel.addEventListener('change', function(){ state.domainTools[sel.dataset.domain] = sel.value; });
+  });
+}
+populateDomainToolSelects();
 
 // ─── NAVIGATION ───────────────────────────────────────────────────────────────
 function goTo(id) {
@@ -211,6 +242,11 @@ function goTo(id) {
 }
 
 // ─── PERSONA ──────────────────────────────────────────────────────────────────
+// Single definition of "gap" used everywhere a domain gets flagged for action
+// (next steps, VuNet recs, tool correlation) — keeps every section of the
+// report pointing at the same set of domains instead of silently disagreeing.
+var GAP_THRESHOLD = 55;
+
 function selectPersona(btn, val) {
   document.querySelectorAll('.persona-btn').forEach(function(b){ b.classList.remove('selected'); });
   btn.classList.add('selected');
@@ -312,6 +348,12 @@ function renderSection() {
         + ' onchange="recordAnswer(\'' + q.id + '\',' + opt.score + ')">'
         + opt.text + '</label>';
     });
+    var naChecked = state.answers[q.id] === 'na' ? 'checked' : '';
+    var naChosen  = state.answers[q.id] === 'na' ? 'chosen' : '';
+    html += '<label class="option-label option-na ' + naChosen + '" onclick="selectOpt(this)">'
+      + '<input type="radio" name="' + q.id + '" value="na" ' + naChecked
+      + ' onchange="recordAnswer(\'' + q.id + '\',\'na\')">'
+      + 'Not sure / not applicable to my role &mdash; I don&rsquo;t have visibility into this</label>';
     html += '</div></div>';
   });
 
@@ -373,21 +415,34 @@ function prevSection() {
 }
 
 // ─── SCORING ──────────────────────────────────────────────────────────────────
+// 'Not sure / not applicable' answers are excluded from both the numerator and
+// denominator, rather than scored as 1 — so a respondent outside a domain (e.g.
+// an app person answering infra questions) doesn't drag that domain's score down
+// with guesses. A domain with zero scoreable answers reports pct = null ("Not
+// assessed") instead of a misleading 0%.
 function computeScores() {
   var results = {};
   state.sections.forEach(function(sec) {
-    var raw = 0, max = sec.questions.length * 5;
-    sec.questions.forEach(function(q){ raw += (state.answers[q.id] || 1); });
-    var pct = Math.round((raw / max) * 100);
-    results[sec.id] = { raw: raw, max: max, pct: pct, label: sec.label, icon: sec.icon, weight: sec.weight, color: sec.color };
+    var raw = 0, max = 0, unanswered = 0;
+    sec.questions.forEach(function(q){
+      var a = state.answers[q.id];
+      if (typeof a === 'number') { raw += a; max += 5; }
+      else { unanswered++; }
+    });
+    var pct = max > 0 ? Math.round((raw / max) * 100) : null;
+    results[sec.id] = { raw: raw, max: max, pct: pct, unanswered: unanswered, label: sec.label, icon: sec.icon, weight: sec.weight, color: sec.color };
   });
-  var weighted = 0;
-  state.sections.forEach(function(sec){ weighted += results[sec.id].pct * sec.weight / 100; });
-  results.overall = Math.round(weighted);
+  var weighted = 0, weightSum = 0;
+  state.sections.forEach(function(sec){
+    var pct = results[sec.id].pct;
+    if (pct !== null) { weighted += pct * sec.weight; weightSum += sec.weight; }
+  });
+  results.overall = weightSum > 0 ? Math.round(weighted / weightSum) : null;
   return results;
 }
 
 function getBand(pct) {
+  if (pct === null || pct === undefined) return { name: 'Not assessed', cls: 'band-na', desc: 'Not enough scoreable answers yet to determine a maturity band.' };
   if (pct < 25) return { name: 'Reactive',   cls: 'band-reactive',   desc: 'Observability is largely absent or fragmented. Incidents are detected reactively, often by customers first.' };
   if (pct < 45) return { name: 'Aware',      cls: 'band-aware',      desc: 'Basic monitoring is in place but siloed. Business and IT metrics are disconnected.' };
   if (pct < 65) return { name: 'Structured', cls: 'band-structured', desc: 'A structured observability foundation exists. Some cross-domain correlation but gaps remain.' };
@@ -396,6 +451,7 @@ function getBand(pct) {
 }
 
 function getSecBand(pct) {
+  if (pct === null || pct === undefined) return { name: 'Not assessed', bg: '#f3f4f6', color: '#6b7280' };
   if (pct < 30) return { name: 'Reactive',   bg: '#ffe4e4', color: '#7f1d1d' };
   if (pct < 55) return { name: 'Aware',      bg: '#f5f5f5', color: '#374151' };
   if (pct < 75) return { name: 'Structured', bg: '#f0f0f0', color: '#111827' };
@@ -419,6 +475,7 @@ function submitToBackend(scores) {
       country:          state.country,
       sector_archetype: state.archetype,
       question_variant: state.archetype,
+      domain_tools:     state.domainTools,
       answers:          state.answers,
       scores:           scores,
       maturity_band:    band.name
@@ -436,7 +493,8 @@ function generateReport() {
   var band  = getBand(scores.overall);
   var name  = (state.fname || '') + (state.lname ? ' ' + state.lname : '') || 'Anonymous';
   var date  = new Date().toLocaleDateString('en-IN', {day:'numeric', month:'long', year:'numeric'});
-  var gaps  = state.sections.filter(function(sec){ return scores[sec.id].pct < 55; });
+  var overallDisplay = scores.overall === null ? '&mdash;' : scores.overall;
+  var gaps  = state.sections.filter(function(sec){ return scores[sec.id].pct !== null && scores[sec.id].pct < GAP_THRESHOLD; });
 
   var reportHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">'
     + '<div>'
@@ -459,7 +517,7 @@ function generateReport() {
     + '<p style="color:rgba(255,255,255,0.65);font-size:13px;max-width:380px;margin-top:0.75rem;line-height:1.5;">' + band.desc + '</p>'
     + '</div>'
     + '<div class="score-big">'
-    + '<div class="score-num">' + scores.overall + '<span style="font-size:1.5rem;color:rgba(255,255,255,0.4)">/100</span></div>'
+    + '<div class="score-num">' + overallDisplay + '<span style="font-size:1.5rem;color:rgba(255,255,255,0.4)">/100</span></div>'
     + '<div class="score-label">Overall Maturity Score</div>'
     + '</div>'
     + '</div>';
@@ -467,86 +525,227 @@ function generateReport() {
   reportHTML += '<div class="results-grid">';
   state.sections.forEach(function(sec) {
     var s = scores[sec.id], sb = getSecBand(s.pct);
+    var scoreDisplay = s.pct === null ? '&mdash;' : (s.pct + '<span class="rc-score-max">%</span>');
+    var subLine = 'Weight: ' + sec.weight + '% of total score'
+      + (s.unanswered > 0 ? ' &middot; ' + s.unanswered + ' not sure/N-A' : '');
     reportHTML += '<div class="result-card rc-' + sec.id + '">'
       + '<div class="rc-top"><div>'
       + '<div style="font-size:18px;margin-bottom:2px;">' + sec.icon + '</div>'
       + '<div class="rc-name">' + sec.label + '</div>'
-      + '<div class="rc-sub">Weight: ' + sec.weight + '% of total score</div>'
+      + '<div class="rc-sub">' + subLine + '</div>'
       + '</div><div class="rc-score-wrap">'
-      + '<div class="rc-score">' + s.pct + '<span class="rc-score-max">%</span></div>'
+      + '<div class="rc-score">' + scoreDisplay + '</div>'
       + '</div></div>'
-      + '<div class="bar-track"><div class="bar-fill bf-' + sec.id + '" style="width:' + s.pct + '%"></div></div>'
+      + '<div class="bar-track"><div class="bar-fill bf-' + sec.id + '" style="width:' + (s.pct || 0) + '%"></div></div>'
       + '<span class="rc-band-tag" style="background:' + sb.bg + ';color:' + sb.color + '">' + sb.name + '</span>'
       + '</div>';
   });
   reportHTML += '</div>';
 
-  reportHTML += '<div style="background:#fff;border:0.5px solid var(--line);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;">'
-    + '<p style="font-size:13px;font-weight:600;margin-bottom:1rem;">Maturity radar across all five domains</p>'
-    + buildRadar(scores)
+  reportHTML += '<div class="roadmap-card" style="background:#0f1923;border-radius:12px;padding:1.5rem 1.5rem 0.5rem;margin-bottom:1.5rem;">'
+    + '<p style="font-size:13px;font-weight:600;color:#ffffff;margin-bottom:0.25rem;">Your maturity roadmap</p>'
+    + '<p style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:0.5rem;">Five stages of observability maturity, from reactive firefighting to fully adaptive, AI-driven operations.</p>'
+    + buildRoadmap(scores)
     + '</div>';
 
+  reportHTML += buildToolCorrelation(scores);
   reportHTML += buildFindings(scores);
   reportHTML += buildVuNetRecs(scores);
 
-  reportHTML += '<div class="next-steps"><h3>Recommended next steps</h3><ul class="ns-list">';
-  gaps.forEach(function(g){
-    reportHTML += '<li>Address the <strong>' + g.label + '</strong> gap &mdash; your highest-leverage improvement area based on your responses.</li>';
+  // Rank gaps worst-score-first (ties broken by weight, since a bigger weight
+  // moves the overall score more) so only ONE domain is ever called "highest
+  // leverage" — the rest are explicitly 2nd, 3rd, etc., not a repeated claim.
+  var rankedGaps = gaps.slice().sort(function(a, b) {
+    return (scores[a.id].pct - scores[b.id].pct) || (b.weight - a.weight);
   });
-  reportHTML += '<li>Request a VuNet live demo scoped to your top two gap domains.</li>';
-  reportHTML += '<li>Ask VuNet to run a Proof of Value (PoV) on your own data &mdash; see business observability in your environment within 2 weeks.</li>';
+  var priorityTail = ['your highest-leverage improvement area', 'your next priority', 'round this out once the above are underway'];
+
+  reportHTML += '<div class="next-steps"><h3>Recommended next steps</h3><ul class="ns-list">';
+  rankedGaps.forEach(function(g, i){
+    var pct = scores[g.id].pct;
+    var tail = priorityTail[i] || ('priority ' + (i + 1));
+    reportHTML += '<li><strong>Priority ' + (i + 1) + '</strong> &mdash; Address the <strong>' + g.label + '</strong> gap (' + pct + '%): ' + tail + '.</li>';
+  });
+  reportHTML += '<li>Explore a live demo or a Proof of Value with VuNet, scoped to your top gap domains &mdash; see it against your own data within 2 weeks.</li>';
   reportHTML += '<li>Benchmark your score against peer organisations in your sector (available on request).</li>';
   reportHTML += '</ul></div>';
 
   reportHTML += '<div class="report-footer">'
     + '<p style="margin-bottom:6px;"><strong>Observability Maturity Index</strong> &mdash; An industry benchmark initiative</p>'
-    + '<p>This report is based on self-assessment responses. Scores are indicative. Contact <a href="mailto:bharat@vunetsystems.com" style="color:var(--magenta);">bharat@vunetsystems.com</a> for a formal maturity assessment workshop.</p>'
+    + '<p>This report is based on self-assessment responses. Scores are indicative. Contact <a href="mailto:info@vunetsystems.com" style="color:var(--magenta);">info@vunetsystems.com</a> for a formal maturity assessment workshop.</p>'
     + '</div>';
 
   document.getElementById('report-content').innerHTML = reportHTML;
   goTo('screen-report');
+  scaleRoadmapCharts();
 }
 
-// ─── RADAR ────────────────────────────────────────────────────────────────────
-function buildRadar(scores) {
-  var cx = 200, cy = 200, r = 140, n = 5;
-  var ids    = ['txn','app','infra','log','comp'];
-  var labels = ['Business &\nTxn Obs', 'App\nPerf', 'Infra &\nNetwork', 'Log\nData Lake', 'Compliance'];
+// ─── MATURITY ROADMAP ─────────────────────────────────────────────────────────
+// Ordinal one-hue ramp (magenta, monotone lightness light→dark) — validated with
+// the dataviz skill's ordinal checks (lightness monotone, adjacent dL, light/dark
+// -end contrast, single hue) against both a white and a navy card surface.
+var ROADMAP_BANDS = [
+  { name: 'Reactive',   min: 0,  max: 25,  fill: '#e496c4', ink: '#0f1923', desc: 'React after the fact' },
+  { name: 'Aware',      min: 25, max: 45,  fill: '#d76ea7', ink: '#0f1923', desc: 'Basic, disconnected' },
+  { name: 'Structured', min: 45, max: 65,  fill: '#cf4a90', ink: '#ffffff', desc: 'Correlated, but manual' },
+  { name: 'Proactive',  min: 65, max: 82,  fill: '#C60675', ink: '#ffffff', desc: 'Automated & linked' },
+  { name: 'Adaptive',   min: 82, max: 100, fill: '#9c1259', ink: '#ffffff', desc: 'AI-driven, fully aligned' }
+];
 
-  function pt(i, radius) {
-    var angle = (Math.PI * 2 * i / n) - Math.PI / 2;
-    return { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) };
+function buildRoadmap(scores) {
+  var pct = scores.overall;
+  if (pct === null) {
+    return '<p style="color:rgba(255,255,255,0.6);font-size:13px;padding:2rem 0;">Not enough scoreable answers yet to place you on the roadmap.</p>';
+  }
+  var n = ROADMAP_BANDS.length;
+  var W = 720, H = 380;
+  var xs = [80, 220, 360, 500, 640];
+  var offsets = [20, 65, 110, 155, 200];   // ascending height above the baseline
+  var baselineY = 300;
+  var ys = offsets.map(function(o) { return baselineY - o; });
+  var R = 26, R_CURRENT = 32;
+
+  var currentIdx = n - 1;
+  for (var bi = 0; bi < n; bi++) {
+    if (pct < ROADMAP_BANDS[bi].max || bi === n - 1) { currentIdx = bi; break; }
   }
 
-  var gridLines = '';
-  [0.2,0.4,0.6,0.8,1].forEach(function(f) {
-    var pts = ids.map(function(_,i){ var p = pt(i, r*f); return p.x+','+p.y; }).join(' ');
-    gridLines += '<polygon points="' + pts + '" fill="none" stroke="#e5e7eb" stroke-width="1"/>';
-    gridLines += '<text x="' + (cx+4) + '" y="' + (cy - r*f + 4) + '" font-size="9" fill="#9ca3af">' + Math.round(f*100) + '</text>';
+  // Smooth S-curve connector through the node centers, plus a short tail past
+  // the last node with a small arrowhead — the "journey continues" cue.
+  var path = 'M ' + xs[0] + ' ' + ys[0];
+  for (var i = 1; i < n; i++) {
+    var midX = (xs[i - 1] + xs[i]) / 2;
+    path += ' C ' + midX + ' ' + ys[i - 1] + ' ' + midX + ' ' + ys[i] + ' ' + xs[i] + ' ' + ys[i];
+  }
+  var dx = xs[n - 1] - xs[n - 2], dy = ys[n - 1] - ys[n - 2];
+  var len = Math.sqrt(dx * dx + dy * dy) || 1;
+  var tailLen = 70;
+  var tailX = xs[n - 1] + (dx / len) * tailLen, tailY = ys[n - 1] + (dy / len) * tailLen;
+  path += ' L ' + tailX + ' ' + tailY;
+  var ang = Math.atan2(dy, dx);
+  var ah = 9;
+  var a1x = tailX - ah * Math.cos(ang - 0.4), a1y = tailY - ah * Math.sin(ang - 0.4);
+  var a2x = tailX - ah * Math.cos(ang + 0.4), a2y = tailY - ah * Math.sin(ang + 0.4);
+
+  var svg = '<svg class="roadmap-path-svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">'
+    + '<path d="' + path + '" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="2" stroke-linecap="round"/>'
+    + '<polygon points="' + tailX + ',' + tailY + ' ' + a1x + ',' + a1y + ' ' + a2x + ',' + a2y + '" fill="#C60675"/>'
+    + '</svg>';
+
+  var nodesHTML = '';
+  ROADMAP_BANDS.forEach(function(b, i) {
+    var isCurrent = i === currentIdx;
+    var r = isCurrent ? R_CURRENT : R;
+    var d = r * 2;
+
+    nodesHTML += '<div class="roadmap-node" style="left:' + (xs[i] - r) + 'px;top:' + (ys[i] - r) + 'px;width:' + d + 'px;height:' + d + 'px;">'
+      + '<div class="roadmap-dot' + (isCurrent ? ' current' : '') + '" style="background:' + b.fill + ';color:' + b.ink + ';width:' + d + 'px;height:' + d + 'px;font-size:' + (isCurrent ? 20 : 16) + 'px;">' + (i + 1) + '</div>'
+      + '</div>';
+
+    nodesHTML += '<div class="roadmap-label" style="left:' + (xs[i] - 68) + 'px;top:' + (Math.max.apply(null, ys) + R_CURRENT + 16) + 'px;">'
+      + '<strong style="color:#ffffff;">' + b.name + '</strong>'
+      + '<span class="rl-desc">' + b.desc + '</span>'
+      + '<span class="rl-range">' + b.min + '&ndash;' + (b.max === 100 ? 100 : b.max - 1) + '</span>'
+      + '</div>';
   });
 
-  var axes = ids.map(function(_,i){
-    var p = pt(i, r);
-    return '<line x1="'+cx+'" y1="'+cy+'" x2="'+p.x+'" y2="'+p.y+'" stroke="#e5e7eb" stroke-width="1"/>';
-  }).join('');
+  // "You are here" tag, anchored above the current node with a connecting stem
+  var cx = xs[currentIdx], topY = ys[currentIdx] - R_CURRENT;
+  var tagW = 118, tagH = 48, gapAbove = 14;
+  var tagBottom = topY - gapAbove, tagTop = tagBottom - tagH;
+  var tagLeft = Math.min(Math.max(cx - tagW / 2, 8), W - tagW - 8);
 
-  var dataPoints = ids.map(function(id,i){ return pt(i, (scores[id].pct/100)*r); });
-  var polygon    = dataPoints.map(function(p){ return p.x+','+p.y; }).join(' ');
-  var dots       = dataPoints.map(function(p){ return '<circle cx="'+p.x+'" cy="'+p.y+'" r="4" fill="#C60675" stroke="#fff" stroke-width="2"/>'; }).join('');
+  var tagHTML = '<div class="roadmap-stem" style="left:' + (cx - 1) + 'px;top:' + tagBottom + 'px;height:' + gapAbove + 'px;"></div>'
+    + '<div class="roadmap-tag" style="left:' + tagLeft + 'px;top:' + tagTop + 'px;width:' + tagW + 'px;height:' + tagH + 'px;">'
+    + '<span class="rt-title">&#x1F4CD; YOU ARE HERE</span>'
+    + '<span class="rt-score">' + pct + '/100</span>'
+    + '</div>';
 
-  var labelsSVG = ids.map(function(_,i){
-    var p  = pt(i, r + 22);
-    var lns = labels[i].split('\n');
-    return lns.map(function(ln,li){
-      return '<text x="'+p.x+'" y="'+(p.y + li*13 - (lns.length-1)*6)+'" text-anchor="middle" font-size="10" font-family="DM Sans,sans-serif" fill="#374151">'+ln+'</text>';
-    }).join('');
-  }).join('');
+  return '<div class="roadmap-wrap"><div class="roadmap-scale-outer">'
+    + '<div class="roadmap-chart" data-natural-width="' + W + '" data-natural-height="' + H + '" style="width:' + W + 'px;height:' + H + 'px;">'
+    + svg + nodesHTML + tagHTML
+    + '</div></div></div>';
+}
 
-  return '<div class="radar-wrap"><svg viewBox="0 0 400 400" width="340" height="340" xmlns="http://www.w3.org/2000/svg">'
-    + gridLines + axes
-    + '<polygon points="'+polygon+'" fill="rgba(198,6,117,0.1)" stroke="#C60675" stroke-width="2"/>'
-    + dots + labelsSVG
-    + '</svg></div>';
+function scaleRoadmapCharts() {
+  document.querySelectorAll('.roadmap-scale-outer').forEach(function(outer) {
+    var inner = outer.querySelector('.roadmap-chart');
+    if (!inner) return;
+    var naturalW = parseFloat(inner.dataset.naturalWidth);
+    var naturalH = parseFloat(inner.dataset.naturalHeight);
+    var w = outer.clientWidth;
+    if (!w) return;
+    var scale = Math.min(1, w / naturalW);
+    inner.style.transform = 'scale(' + scale + ')';
+    outer.style.height = Math.round(naturalH * scale) + 'px';
+  });
+}
+window.addEventListener('resize', scaleRoadmapCharts);
+
+// ─── TOOL / PRACTICE CORRELATION ───────────────────────────────────────────────
+// Correlates the tool assigned to EACH domain (captured at registration) against
+// that domain's actual maturity score — e.g. a named tool on a domain that still
+// scores as fragmented points at rollout/process gaps, not a tooling gap. Also
+// flags outright tool sprawl (a different tool per domain) vs. real consolidation
+// (one tool doing double duty across domains).
+function buildToolCorrelation(scores) {
+  var dt = state.domainTools || {};
+  var pairs = state.sections.map(function(sec) {
+    return { id: sec.id, label: sec.label, tool: dt[sec.id] || '', pct: scores[sec.id].pct };
+  });
+  var specified = pairs.filter(function(p){ return p.tool && p.tool !== TOOL_UNSURE; });
+  if (specified.length === 0) return '';
+
+  function isSiloed(p) { return p.pct !== null && p.pct < GAP_THRESHOLD; }
+  var named = specified.filter(function(p){ return p.tool !== TOOL_NONE; });
+
+  // Domains with a real tool assigned that still score as siloed/fragmented —
+  // the most actionable, counterintuitive signal.
+  var mismatches = named.filter(function(p){ return isSiloed(p); });
+  // Domains with no dedicated tool that also score low — expected, not a surprise.
+  var noToolGaps = specified.filter(function(p){ return p.tool === TOOL_NONE && isSiloed(p); });
+
+  // Consolidation: does one tool cover more than one domain?
+  var byTool = {};
+  named.forEach(function(p){ (byTool[p.tool] = byTool[p.tool] || []).push(p.label); });
+  var sharedTool = Object.keys(byTool).filter(function(t){ return byTool[t].length > 1; })[0];
+  var distinctToolCount = Object.keys(byTool).length;
+
+  var headline, body;
+  if (mismatches.length > 0) {
+    var m = mismatches[0];
+    headline = mismatches.length === 1
+      ? 'Signal: a named tool isn\'t translating to maturity'
+      : 'Signal: named tools aren\'t translating to maturity in ' + mismatches.length + ' domains';
+    body = 'You use <strong>' + m.tool + '</strong> for <strong>' + m.label + '</strong>, yet this domain scores '
+      + m.pct + '% &mdash; still fragmented or manual. '
+      + (mismatches.length > 1
+          ? 'The same pattern shows up in ' + (mismatches.length - 1) + ' more domain' + (mismatches.length > 2 ? 's' : '') + ' ('
+            + mismatches.slice(1).map(function(p){ return p.label + ' with ' + p.tool; }).join(', ') + '). '
+          : '')
+      + 'That usually points to incomplete rollout or a process gap, not a tooling gap.';
+  } else if (distinctToolCount >= 4) {
+    headline = 'Signal: a different tool per domain';
+    body = 'You\'re running ' + distinctToolCount + ' different tools across your five domains ('
+      + named.map(function(p){ return p.label + ': ' + p.tool; }).join('; ') + '). '
+      + 'That\'s fragmentation by function, not just by count &mdash; each domain likely has its own blind spot at the seams.';
+  } else if (sharedTool) {
+    headline = 'Real consolidation, not just tool count';
+    body = '<strong>' + sharedTool + '</strong> covers ' + byTool[sharedTool].join(' and ') + ' &mdash; a genuine sign of consolidation rather than tool sprawl, and it shows in those domains\' scores.';
+  } else if (noToolGaps.length > 0) {
+    headline = 'No dedicated tool, and it shows';
+    body = noToolGaps.map(function(p){ return p.label + ' (' + p.pct + '%)'; }).join(', ')
+      + ' has no dedicated tool assigned, which lines up with its fragmented or manual practices.';
+  } else {
+    headline = 'Tooling and practice are broadly aligned';
+    body = 'Based on the tools you assigned per domain and your answers across all five, there\'s no strong sign of tool-versus-practice mismatch right now.';
+  }
+
+  return '<div style="background:#fff;border:0.5px solid var(--line);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;">'
+    + '<p style="font-size:13px;font-weight:600;margin-bottom:0.5rem;">Tool &amp; practice correlation</p>'
+    + '<p style="font-size:13px;font-weight:600;color:var(--magenta-deep);margin-bottom:6px;">' + headline + '</p>'
+    + '<p style="font-size:13px;color:#374151;line-height:1.6;">' + body + '</p>'
+    + '</div>';
 }
 
 // ─── FINDINGS PER SECTION ─────────────────────────────────────────────────────
@@ -554,26 +753,29 @@ function buildFindings(scores) {
   var html = '';
   state.sections.forEach(function(sec) {
     var s = scores[sec.id];
+    var pctLabel = s.pct === null ? 'Not assessed' : (s.pct + '% maturity');
     html += '<div class="section-detail">'
       + '<div class="sd-header"><span style="font-size:18px;">' + sec.icon + '</span>'
       + '<h3>' + sec.label + '</h3>'
-      + '<span style="font-size:12px;color:#6b7280;margin-left:auto;">' + s.pct + '% maturity</span></div>'
+      + '<span style="font-size:12px;color:#6b7280;margin-left:auto;">' + pctLabel + '</span></div>'
       + '<div class="sd-body">';
 
     sec.questions.forEach(function(q) {
-      var ans = state.answers[q.id] || 1;
-      var type, label, note;
-      if (ans <= 2)    { type = 'gap';      label = 'Critical gap';        note = 'VuNet can address this.'; }
-      else if (ans===3){ type = 'partial';  label = 'Partial capability';  note = 'VuNet can accelerate maturity here.'; }
-      else             { type = 'strength'; label = 'Strength';             note = ''; }
+      var ans = state.answers[q.id];
+      var type, label, optText;
+      if (ans === 'na' || ans === undefined) {
+        type = 'unknown'; label = 'Not sure / not applicable';
+        optText = 'Skipped &mdash; outside this respondent\'s visibility.';
+      } else if (ans <= 2)    { type = 'gap';      label = 'Critical gap';       optText = (q.options[ans - 1] || {}).text || ''; }
+      else if (ans === 3)     { type = 'partial';  label = 'Partial capability'; optText = (q.options[ans - 1] || {}).text || ''; }
+      else                    { type = 'strength'; label = 'Strength';          optText = (q.options[ans - 1] || {}).text || ''; }
 
-      var dotClass = type === 'gap' ? 'gap-flag' : (type === 'partial' ? 'partial-flag' : 'strength-flag');
-      var optText  = (q.options[ans - 1] || {}).text || '';
+      var dotClass = type === 'gap' ? 'gap-flag' : (type === 'partial' ? 'partial-flag' : (type === 'unknown' ? 'unknown-flag' : 'strength-flag'));
       html += '<div class="finding-row">'
         + '<div class="finding-dot ' + dotClass + '"></div>'
         + '<div class="text"><strong>' + q.text.substring(0,90) + (q.text.length>90?'&hellip;':'') + '</strong>'
         + '<span>' + label + ': ' + optText.substring(0,110) + (optText.length>110?'&hellip;':'')
-        + (note ? ' &mdash; <em>' + note + '</em>' : '') + '</span>'
+        + '</span>'
         + '</div></div>';
     });
     html += '</div></div>';
@@ -581,45 +783,52 @@ function buildFindings(scores) {
   return html;
 }
 
-// ─── VUNET RECOMMENDATIONS ────────────────────────────────────────────────────
+// ─── CLOSING RECOMMENDATIONS ───────────────────────────────────────────────────
+// A single consolidated closing note — VuNet is named once here, not repeated
+// against every gap area above.
 function buildVuNetRecs(scores) {
   var recs = [];
 
-  if (scores.txn.pct < 75) recs.push({
+  // Same <55 cutoff as the results-grid "Aware or below" band and the
+  // "Recommended next steps" gap list further down — one definition of "gap"
+  // everywhere in the report, so the two sections never contradict each other.
+  function isGap(pct) { return pct !== null && pct < GAP_THRESHOLD; }
+
+  if (isGap(scores.txn.pct)) recs.push({
     icon: '&#x1F4B3;',
-    title: 'Transaction Observability gap &mdash; VuNet&rsquo;s core differentiator',
-    body: 'VuNet vuTxn360 provides end-to-end business transaction tracing across channels, applications, and infrastructure &mdash; linking IT RCA directly to business SLA impact. Unlike generic APM tools, VuNet maps each transaction step to a business KPI. This is where VuNet uniquely differentiates from Dynatrace, Datadog, and ELK in regulated enterprise contexts.'
+    title: 'Transaction Observability',
+    body: 'End-to-end business transaction tracing across channels, applications, and infrastructure &mdash; linking IT root-cause analysis directly to business SLA impact.'
   });
-  if (scores.log.pct < 65) recs.push({
+  if (isGap(scores.log.pct)) recs.push({
     icon: '&#x1F4E6;',
-    title: 'Log Data Lake gap &mdash; vuLogX centralised log analytics',
-    body: 'VuNet vuLogX delivers a fully on-premise log data lake with regulatory-aligned retention, sub-second query across terabyte-scale datasets, and ML-driven anomaly detection &mdash; all with zero data egress. Designed for regulated environments where data sovereignty is non-negotiable.'
+    title: 'Log Data Lake',
+    body: 'A fully on-premise log data lake with regulatory-aligned retention, sub-second query at terabyte scale, and ML-driven anomaly detection.'
   });
-  if (scores.infra.pct < 65) recs.push({
+  if (isGap(scores.infra.pct)) recs.push({
     icon: '&#x1F5A5;',
-    title: 'Infrastructure visibility gap &mdash; vuInfra360',
-    body: 'VuNet vuInfra360 provides full-stack infrastructure observability including network path analytics (jitter, latency, packet loss), container monitoring, and data centre health &mdash; all unified on one platform. No separate agents for network and compute.'
+    title: 'Infrastructure Visibility',
+    body: 'Full-stack infrastructure observability &mdash; network path analytics, container monitoring, and data-centre health &mdash; unified on one platform.'
   });
-  if (scores.comp.pct < 65) recs.push({
+  if (isGap(scores.comp.pct)) recs.push({
     icon: '&#x1F6E1;',
-    title: 'Compliance readiness gap &mdash; built-in, not bolted on',
-    body: 'VuNet is architected for regulated environments. Immutable log storage, RBAC with full access audit trails, WORM-compatible storage, and on-demand audit-pack generation are native capabilities. VuNet has active deployments at SBI, ICICI, NPCI, and UCO addressing exactly these compliance requirements.'
+    title: 'Compliance Readiness',
+    body: 'Immutable log storage, full access-audit trails, and on-demand audit-pack generation, built in for regulated environments rather than bolted on.'
   });
-  if (scores.app.pct < 65) recs.push({
+  if (isGap(scores.app.pct)) recs.push({
     icon: '&#x26A1;',
-    title: 'Application performance gap &mdash; vuApp360',
-    body: 'VuNet vuApp360 provides APM capabilities integrated on the same platform as transaction and infrastructure observability. SLO tracking, distributed tracing, and third-party API dependency monitoring are unified &mdash; eliminating context-switching that slows incident response across siloed tools.'
+    title: 'Application Performance',
+    body: 'APM, distributed tracing, and SLO tracking on the same platform as transaction and infrastructure observability &mdash; no context-switching across siloed tools.'
   });
 
   if (recs.length === 0) recs.push({
     icon: '&#x2605;',
-    title: 'Strong foundation &mdash; ready for adaptive observability',
-    body: 'Your organisation has an advanced observability capability. VuNet can help you move to the next level: ML-driven business impact scoring, AIOps-powered RCA, and a unified Business Observability Command Centre that serves both IT and business leadership.'
+    title: 'Adaptive Observability',
+    body: 'ML-driven business impact scoring, AIOps-powered RCA, and a unified Business Observability Command Centre serving both IT and business leadership.'
   });
 
   var html = '<div class="vunet-gap-box">'
-    + '<h3>How VuNet can help close these gaps</h3>'
-    + '<p class="sub">Based on your assessment, these are the specific VuNet capabilities that address your identified gaps.</p>'
+    + '<h3>Explore next with VuNet</h3>'
+    + '<p class="sub">Based on your assessment, these are the areas worth a closer look &mdash; and where a unified observability platform can help.</p>'
     + '<div class="gap-items">';
   recs.forEach(function(rec){
     html += '<div class="gap-item"><span class="gap-item-icon">' + rec.icon + '</span>'
@@ -650,7 +859,7 @@ function downloadPDF() {
   var containerRect = clone.getBoundingClientRect();
   var safeBreaks = [];
   clone.querySelectorAll(
-    '.report-hero, .results-grid, .section-detail, .vunet-gap-box, .next-steps, .report-footer'
+    '.report-hero, .results-grid, .roadmap-card, .section-detail, .vunet-gap-box, .next-steps, .report-footer'
   ).forEach(function(block) {
     var top = block.getBoundingClientRect().top - containerRect.top;
     if (top > 10) safeBreaks.push(top);

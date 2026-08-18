@@ -148,11 +148,14 @@ All question content lives in `frontend/questions.js`. No other file needs to ch
   "sector":           "Private Sector Bank",
   "sector_archetype": "bfsi_regulated",
   "question_variant": "bfsi_regulated",
+  "domain_tools":     { "txn": "Dynatrace", "app": "Datadog", "infra": "None / no dedicated tool", ... },
   "answers":          { "txn1": 3, "txn2": 2, ... },
   "scores":           { "txn": { "pct": 52 }, ..., "overall": 58 },
   "maturity_band":    "Structured"
 }
 ```
+
+`answers` values are either a score `1`–`5` or the string `"na"` — respondents can mark any question "Not sure / not applicable" if it falls outside their visibility (e.g. an application lead answering infrastructure questions). `"na"` answers are excluded from that domain's scoring denominator rather than counted as a low score; a domain with zero scoreable answers reports `pct: null` ("Not assessed").
 
 ---
 

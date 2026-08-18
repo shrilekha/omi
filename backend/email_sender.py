@@ -36,7 +36,7 @@ def _console_email(data):
     print(f'Your overall maturity score: {overall}/100 — {band}\n')
     print('Domain breakdown:')
     print(domain_rows)
-    print('Contact bharat@vunetsystems.com to discuss your results.')
+    print('Contact info@vunetsystems.com to discuss your results.')
     print('=' * 65 + '\n')
 
 
@@ -52,7 +52,7 @@ def _gmail_api_email(data):
         raise RuntimeError('GMAIL_SA_CREDENTIALS_JSON not set')
 
     creds_json = json.loads(base64.b64decode(creds_b64).decode())
-    sender = os.getenv('GMAIL_SENDER', 'bharat@vunetsystems.com')
+    sender = os.getenv('GMAIL_SENDER', 'info@vunetsystems.com')
 
     credentials = service_account.Credentials.from_service_account_info(
         creds_json,
@@ -102,7 +102,7 @@ def _build_html_email(data, sender):
       <tbody>{domain_rows_html}</tbody>
     </table>
     <p style="font-size:13px;color:#374151;margin:24px 0 8px;">Want to discuss your results and improvement roadmap?</p>
-    <a href="mailto:bharat@vunetsystems.com" style="display:inline-block;background:#C60675;color:#fff;text-decoration:none;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600;">Contact VuNet Systems</a>
+    <a href="mailto:info@vunetsystems.com" style="display:inline-block;background:#C60675;color:#fff;text-decoration:none;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600;">Contact VuNet Systems</a>
   </div>
   <div style="padding:16px 32px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;">
     Observability Maturity Index &mdash; An industry benchmark initiative by VuNet Systems.

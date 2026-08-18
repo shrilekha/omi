@@ -1,4 +1,5 @@
 import os
+import json
 import sqlite3
 
 ENV = os.getenv('ENV', 'development')
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     country          TEXT,
     sector_archetype TEXT,
     question_variant TEXT,
+    domain_tools     TEXT,
     txn1 INTEGER, txn2 INTEGER, txn3 INTEGER, txn4 INTEGER, txn5 INTEGER,
     app1 INTEGER, app2 INTEGER, app3 INTEGER, app4 INTEGER, app5 INTEGER,
     infra1 INTEGER, infra2 INTEGER, infra3 INTEGER, infra4 INTEGER, infra5 INTEGER,
@@ -70,6 +72,11 @@ def init_db():
     if ENV != 'production':
         conn = _get_conn()
         conn.execute(_CREATE_SQLITE)
+        existing_cols = {row[1] for row in conn.execute('PRAGMA table_info(submissions)')}
+        if 'tools' in existing_cols and 'domain_tools' not in existing_cols:
+            conn.execute('ALTER TABLE submissions RENAME COLUMN tools TO domain_tools')
+        elif 'domain_tools' not in existing_cols:
+            conn.execute('ALTER TABLE submissions ADD COLUMN domain_tools TEXT')
         conn.commit()
         conn.close()
 
@@ -88,6 +95,7 @@ def save_submission(data):
         'country':          data.get('country', ''),
         'sector_archetype': data.get('sector_archetype', ''),
         'question_variant': data.get('question_variant', ''),
+        'domain_tools':     json.dumps(data.get('domain_tools') or {}),
         'txn_score':        scores.get('txn', {}).get('pct'),
         'app_score':        scores.get('app', {}).get('pct'),
         'infra_score':      scores.get('infra', {}).get('pct'),
@@ -97,7 +105,8 @@ def save_submission(data):
         'maturity_band':    data.get('maturity_band', ''),
     }
     for col in _ANSWER_COLS:
-        row[col] = answers.get(col)
+        val = answers.get(col)
+        row[col] = val if isinstance(val, (int, float)) else None
 
     ph = _placeholder()
     cols   = list(row.keys())

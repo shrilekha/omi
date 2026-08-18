@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     country          VARCHAR(100),
     sector_archetype VARCHAR(50),
     question_variant VARCHAR(50),
+    domain_tools     JSON,
 
     -- 25 answer scores (1–5 per question)
     txn1   TINYINT UNSIGNED, txn2  TINYINT UNSIGNED, txn3  TINYINT UNSIGNED,
