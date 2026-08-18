@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>omi-deepdive — {{ org.name }} links</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap">
+  <header class="page-header">
+    <span class="badge">omi-deepdive · admin</span>
+    <h1>{{ org.name }}</h1>
+    <p class="sub">
+      <a href="{{ url_for('admin_new') }}">&larr; Back to create another organization</a>
+      &nbsp;·&nbsp;
+      <a href="{{ url_for('admin_logout') }}">Log out</a>
+    </p>
+  </header>
+
+  <section class="card">
+    <h2>Consolidated report link</h2>
+    <p class="sub">Share only with the account lead / leadership. Updates live as app owners submit.</p>
+    <input type="text" readonly value="{{ base_url }}/report/{{ org.report_token }}" onclick="this.select()">
+  </section>
+
+  <section class="card">
+    <h2>Per-app links</h2>
+    <p class="sub">Send each app owner only their own app's link.</p>
+    {% for a in apps %}
+    <label class="block">{{ a.name }}
+      <input type="text" readonly value="{{ base_url }}/app/{{ a.access_token }}" onclick="this.select()">
+    </label>
+    {% endfor %}
+  </section>
+</div>
+</body>
+</html>

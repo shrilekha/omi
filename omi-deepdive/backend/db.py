@@ -172,6 +172,22 @@ def get_org_by_report_token(token):
         conn.close()
 
 
+def get_organization(organization_id):
+    conn = _get_conn()
+    try:
+        return _fetchone_dict(conn, "SELECT * FROM organizations WHERE id = ?", (organization_id,))
+    finally:
+        conn.close()
+
+
+def get_all_organizations():
+    conn = _get_conn()
+    try:
+        return _fetchall_dict(conn, "SELECT * FROM organizations ORDER BY created_at DESC", ())
+    finally:
+        conn.close()
+
+
 def get_apps_for_org(organization_id):
     conn = _get_conn()
     try:

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>omi-deepdive — Admin</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap narrow">
+  <section class="card">
+    <span class="badge">omi-deepdive · admin</span>
+    <h1>Admin access</h1>
+    <p class="sub">Enter the admin key to create organizations and apps.</p>
+    {% if error %}<p class="sub" style="color:#b42318;">{{ error }}</p>{% endif %}
+    <form method="POST">
+      <label>Admin key
+        <input type="password" name="key" required autofocus>
+      </label>
+      <button type="submit" class="submit">Enter</button>
+    </form>
+  </section>
+</div>
+</body>
+</html>

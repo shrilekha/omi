@@ -38,24 +38,36 @@ python app.py
 Open **http://localhost:5060**. The SQLite database is auto-created at
 `local_dev.db` (project root) on first run.
 
-### Seed an organization and its apps
+### Create an organization and its apps
 
+Two ways to do this — pick whichever is more convenient:
+
+**Browser (recommended if you don't have shell access, e.g. testing over a
+forwarded Codespaces URL):** open `/admin`, enter the `ADMIN_KEY` from your
+`.env`, create an organization and list its apps (blank app rows are ignored —
+2 apps for one organization, 5 for another, no fixed count assumed), and the
+next page shows every link — the consolidated report link and one link per
+app — ready to copy and send out. `/admin` also lists organizations created
+earlier so you can get back to their links at any time.
+
+**Command line:**
 ```bash
 cd omi-deepdive/backend
 python seed.py "IndusInd Bank" "Mobile Banking App" "Internet Banking Portal" \
     "UPI Payments Service" "Loan Origination System" "Trade Finance Platform"
 ```
 
-This prints:
+Either way you get:
 - One **per-app link** (`/app/<token>`) to send to each app owner — send each
   owner only their own app's link.
 - One **consolidated report link** (`/report/<token>`) — share only with the
   account lead / leadership. It updates automatically as each app owner submits;
   apps with no response yet show as "Not yet submitted" rather than a zero score.
 
-The number of apps is arbitrary — pass 2 for one organization, 5 for another;
-nothing in the schema or code assumes a fixed count. Run `seed.py` again with a
-new organization name to start a fresh engagement without touching prior data.
+`/admin` is the only page that can create data and isn't protected by an
+unguessable token the way `/app/<token>` and `/report/<token>` are — it sits
+behind the `ADMIN_KEY` password from `.env` instead. Change that key before any
+shared or production use.
 
 ---
 
