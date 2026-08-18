@@ -69,6 +69,22 @@ unguessable token the way `/app/<token>` and `/report/<token>` are — it sits
 behind the `ADMIN_KEY` password from `.env` instead. Change that key before any
 shared or production use.
 
+### Swapping admin login to Google OAuth
+
+The shared `ADMIN_KEY` password is meant to be temporary. When Google OAuth
+credentials are ready, set `GOOGLE_OAUTH_CLIENT_ID` and
+`GOOGLE_OAUTH_CLIENT_SECRET` in `.env` (see `.env.example` for where to create
+them in Google Cloud Console and which redirect URI to register) and restart
+— `/admin` switches to a "Sign in with Google" button and the password form
+is retired, no code changes needed. Set `GOOGLE_OAUTH_ALLOWED_DOMAIN` to
+restrict sign-in to one Google Workspace domain (checked server-side against
+the verified email address, not just requested as a UI hint). Once enabled,
+each admin page shows which Google account is signed in.
+
+This is implemented with the Python standard library directly against
+Google's OAuth endpoints — enabling it later never requires a new `pip
+install`, only the env vars above.
+
 ---
 
 ## Production setup (Ubuntu VM)

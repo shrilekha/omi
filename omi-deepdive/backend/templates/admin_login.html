@@ -10,14 +10,22 @@
   <section class="card">
     <span class="badge">omi-deepdive · admin</span>
     <h1>Admin access</h1>
-    <p class="sub">Enter the admin key to create organizations and apps.</p>
     {% if error %}<p class="sub" style="color:#b42318;">{{ error }}</p>{% endif %}
-    <form method="POST">
-      <label>Admin key
-        <input type="password" name="key" required autofocus>
-      </label>
-      <button type="submit" class="submit">Enter</button>
-    </form>
+
+    {% if oauth_enabled %}
+      <p class="sub">Sign in with your Google Workspace account to create organizations and apps.</p>
+      <a href="{{ url_for('admin_google_login') }}" class="submit" style="display:block; text-align:center; text-decoration:none;">
+        Sign in with Google
+      </a>
+    {% else %}
+      <p class="sub">Enter the admin key to create organizations and apps.</p>
+      <form method="POST">
+        <label>Admin key
+          <input type="password" name="key" required autofocus>
+        </label>
+        <button type="submit" class="submit">Enter</button>
+      </form>
+    {% endif %}
   </section>
 </div>
 </body>

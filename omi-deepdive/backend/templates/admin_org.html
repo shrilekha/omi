@@ -16,6 +16,7 @@
       &nbsp;·&nbsp;
       <a href="{{ url_for('admin_new') }}">+ New organization</a>
       &nbsp;·&nbsp;
+      {% if session.admin_email %}Signed in as {{ session.admin_email }} &nbsp;·&nbsp; {% endif %}
       <a href="{{ url_for('admin_logout') }}">Log out</a>
     </p>
   </header>

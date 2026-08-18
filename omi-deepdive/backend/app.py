@@ -1,5 +1,9 @@
+import json
 import os
 import re
+import secrets
+import urllib.parse
+import urllib.request
 import uuid
 from datetime import datetime
 from functools import wraps
@@ -21,6 +25,27 @@ from questions import DIMENSIONS, OWNERSHIP_QUESTIONS
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-change-in-prod')
 ADMIN_KEY = os.getenv('ADMIN_KEY', 'changeme-admin-password')
+
+# Admin login via Google OAuth — off by default. Set both GOOGLE_OAUTH_CLIENT_ID
+# and GOOGLE_OAUTH_CLIENT_SECRET (see .env.example) to switch admin login from
+# the ADMIN_KEY password to "Sign in with Google" — no code changes needed.
+# Implemented with stdlib urllib against Google's OAuth endpoints directly
+# (no Authlib/google-auth dependency) so enabling this later never requires a
+# new pip install, only env vars.
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '').strip()
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', '').strip()
+GOOGLE_ALLOWED_DOMAIN = os.getenv('GOOGLE_OAUTH_ALLOWED_DOMAIN', '').strip().lower()
+OAUTH_ENABLED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+
+GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
+GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+GOOGLE_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo'
+
+OAUTH_LOGIN_ERRORS = {
+    'oauth_failed': 'Google sign-in failed. Please try again.',
+    'oauth_unverified': "That Google account's email is not verified.",
+    'oauth_domain': 'That Google account is not authorized for this tool.',
+}
 
 # Trust X-Forwarded-Host/-Proto/-For/-Port from the reverse proxy in front of
 # this app (GitHub Codespaces' port forwarding, Nginx in production, etc.) so
@@ -58,18 +83,91 @@ def admin_login():
     if request.method == 'GET' and session.get('admin'):
         return redirect(url_for('admin_new'))
 
-    error = None
+    error = OAUTH_LOGIN_ERRORS.get(request.args.get('error'))
+
+    if OAUTH_ENABLED:
+        # Password login is retired once Google OAuth is configured — this is a
+        # swap, not an additional parallel login path.
+        if request.method == 'POST':
+            abort(404)
+        return render_template('admin_login.html', error=error, oauth_enabled=True)
+
     if request.method == 'POST':
         if request.form.get('key') == ADMIN_KEY:
             session['admin'] = True
             return redirect(request.args.get('next') or url_for('admin_new'))
         error = 'Incorrect key.'
-    return render_template('admin_login.html', error=error)
+    return render_template('admin_login.html', error=error, oauth_enabled=False)
+
+
+@app.route('/admin/google/login')
+def admin_google_login():
+    if not OAUTH_ENABLED:
+        abort(404)
+    state = secrets.token_urlsafe(24)
+    session['oauth_state'] = state
+    params = {
+        'client_id': GOOGLE_CLIENT_ID,
+        'redirect_uri': url_for('admin_google_callback', _external=True),
+        'response_type': 'code',
+        'scope': 'openid email',
+        'state': state,
+        'prompt': 'select_account',
+    }
+    if GOOGLE_ALLOWED_DOMAIN:
+        params['hd'] = GOOGLE_ALLOWED_DOMAIN
+    return redirect(f'{GOOGLE_AUTH_URL}?{urllib.parse.urlencode(params)}')
+
+
+@app.route('/admin/google/callback')
+def admin_google_callback():
+    if not OAUTH_ENABLED:
+        abort(404)
+
+    if not request.args.get('state') or request.args.get('state') != session.pop('oauth_state', None):
+        return redirect(url_for('admin_login', error='oauth_failed'))
+
+    code = request.args.get('code')
+    if not code:
+        return redirect(url_for('admin_login', error='oauth_failed'))
+
+    try:
+        token_body = urllib.parse.urlencode({
+            'code': code,
+            'client_id': GOOGLE_CLIENT_ID,
+            'client_secret': GOOGLE_CLIENT_SECRET,
+            'redirect_uri': url_for('admin_google_callback', _external=True),
+            'grant_type': 'authorization_code',
+        }).encode()
+        token_req = urllib.request.Request(GOOGLE_TOKEN_URL, data=token_body, method='POST')
+        with urllib.request.urlopen(token_req, timeout=10) as resp:
+            access_token = json.loads(resp.read().decode())['access_token']
+
+        userinfo_req = urllib.request.Request(
+            GOOGLE_USERINFO_URL, headers={'Authorization': f'Bearer {access_token}'}
+        )
+        with urllib.request.urlopen(userinfo_req, timeout=10) as resp:
+            userinfo = json.loads(resp.read().decode())
+    except Exception as e:
+        app.logger.error(f'Google OAuth error: {e}')
+        return redirect(url_for('admin_login', error='oauth_failed'))
+
+    email = (userinfo.get('email') or '').strip()
+    if not email or not userinfo.get('email_verified'):
+        return redirect(url_for('admin_login', error='oauth_unverified'))
+
+    if GOOGLE_ALLOWED_DOMAIN and not email.lower().endswith('@' + GOOGLE_ALLOWED_DOMAIN):
+        return redirect(url_for('admin_login', error='oauth_domain'))
+
+    session['admin'] = True
+    session['admin_email'] = email
+    return redirect(url_for('admin_new'))
 
 
 @app.route('/admin/logout')
 def admin_logout():
     session.pop('admin', None)
+    session.pop('admin_email', None)
     return redirect(url_for('admin_login'))
 
 

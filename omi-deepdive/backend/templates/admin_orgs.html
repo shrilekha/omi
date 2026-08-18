@@ -11,7 +11,7 @@
   <header class="page-header">
     <span class="badge">omi-deepdive · admin</span>
     <h1>Admin</h1>
-    <p class="sub"><a href="{{ url_for('admin_logout') }}">Log out</a></p>
+    <p class="sub">{% if session.admin_email %}Signed in as {{ session.admin_email }} &nbsp;·&nbsp; {% endif %}<a href="{{ url_for('admin_logout') }}">Log out</a></p>
   </header>
 
   <nav class="tab-nav">
