@@ -40,24 +40,15 @@ Open **http://localhost:5060**. The SQLite database is auto-created at
 
 ### Create an organization and its apps
 
-Two ways to do this — pick whichever is more convenient:
+Open `/admin`, sign in (`ADMIN_KEY` password by default, or "Sign in with
+Google" once that's configured — see below), create an organization and list
+its apps (blank app rows are ignored — 2 apps for one organization, 5 for
+another, no fixed count assumed), and the next page shows every link — the
+consolidated report link and one link per app, each clickable and openable in
+a new tab — ready to copy and send out. `/admin` also lists organizations
+created earlier so you can get back to their links at any time.
 
-**Browser (recommended if you don't have shell access, e.g. testing over a
-forwarded Codespaces URL):** open `/admin`, enter the `ADMIN_KEY` from your
-`.env`, create an organization and list its apps (blank app rows are ignored —
-2 apps for one organization, 5 for another, no fixed count assumed), and the
-next page shows every link — the consolidated report link and one link per
-app — ready to copy and send out. `/admin` also lists organizations created
-earlier so you can get back to their links at any time.
-
-**Command line:**
-```bash
-cd omi-deepdive/backend
-python seed.py "IndusInd Bank" "Mobile Banking App" "Internet Banking Portal" \
-    "UPI Payments Service" "Loan Origination System" "Trade Finance Platform"
-```
-
-Either way you get:
+You get:
 - One **per-app link** (`/app/<token>`) to send to each app owner — send each
   owner only their own app's link.
 - One **consolidated report link** (`/report/<token>`) — share only with the
@@ -119,15 +110,16 @@ cd backend
 gunicorn -w 4 -b 0.0.0.0:5060 app:app
 ```
 
-Seed via the same `seed.py` script with `ENV=production` set (it reads `.env`
-through the same `db.py` used by the app, so it writes to the same MySQL
-database once configured).
+Create organizations and apps the same way as in development — via `/admin`
+once the app is running (it reads `.env` through the same `db.py` used by the
+app, so it writes to the same MySQL database once configured).
 
 Serve behind Nginx with SSL, on its own subdomain/path, and behind an internal
-allowlist or VPN if possible — the report and per-app links are the only access
-control (unguessable long tokens, no login), which is an acceptable tradeoff for
-a short-lived internal engagement but not a substitute for keeping this off the
-public internet if the hosting environment allows restricting it.
+allowlist or VPN if possible. Report and per-app links rely only on their own
+unguessable tokens (no login) — an acceptable tradeoff for a short-lived
+internal engagement but not a substitute for keeping this off the public
+internet if the hosting environment allows restricting it. `/admin` itself is
+gated by `ADMIN_KEY` or Google OAuth (see above).
 
 ---
 
@@ -136,15 +128,18 @@ public internet if the hosting environment allows restricting it.
 ```
 omi-deepdive/
 ├── backend/
-│   ├── app.py          # Flask app — routes: /app/<token>, /report/<token>, /api/health
+│   ├── app.py          # Flask app — all routes (assessment, report, admin, OAuth, health)
 │   ├── db.py            # DB abstraction (SQLite in dev, MySQL in prod)
 │   ├── scoring.py        # Per-dimension + overall scoring, N/A renormalization, maturity band
 │   ├── questions.py       # The question bank — edit here to add/reword questions or dimensions
-│   ├── seed.py           # Creates an organization + its apps, prints tokenized links
 │   ├── templates/
-│   │   ├── assess.html    # Per-app assessment form
-│   │   ├── thanks.html    # Post-submission confirmation
-│   │   └── report.html    # Consolidated heatmap + per-app detail
+│   │   ├── assess.html          # Per-app assessment form (pre-fills from prior submission)
+│   │   ├── submission_summary.html  # Post-submit confirmation and /app/<token>/print view
+│   │   ├── report.html          # Consolidated heatmap + per-app detail
+│   │   ├── admin_login.html      # Password or Google sign-in
+│   │   ├── admin_new.html        # Create-organization tab
+│   │   ├── admin_orgs.html       # Existing-organizations tab (paginated)
+│   │   └── admin_org.html        # One organization's links + reset actions
 │   └── static/style.css
 ├── database/
 │   └── schema.sql        # MySQL schema for production
