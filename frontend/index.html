@@ -162,11 +162,21 @@
 
       <p style="font-size:12px;color:#6b7280;margin-bottom:0.6rem;font-weight:600;">Which tool covers each domain today? <span style="font-weight:400;">(optional, helps us spot tool-vs-practice mismatches)</span></p>
       <div class="domain-tools-grid" id="domain-tools-grid">
-        <div class="dt-row"><label>Business &amp; Transaction Observability</label><select data-domain="txn"></select></div>
-        <div class="dt-row"><label>Application Performance</label><select data-domain="app"></select></div>
-        <div class="dt-row"><label>Infrastructure &amp; Network</label><select data-domain="infra"></select></div>
-        <div class="dt-row"><label>Log Management &amp; Data Lake</label><select data-domain="log"></select></div>
-        <div class="dt-row"><label>Compliance &amp; Audit Readiness</label><select data-domain="comp"></select></div>
+        <div class="dt-row"><label>Business &amp; Transaction Observability</label>
+          <div class="ms-multiselect" data-domain="txn"><button type="button" class="ms-trigger" onclick="toggleMsPanel(this)">Select tools&hellip;</button><div class="ms-panel"></div></div>
+        </div>
+        <div class="dt-row"><label>Application Performance</label>
+          <div class="ms-multiselect" data-domain="app"><button type="button" class="ms-trigger" onclick="toggleMsPanel(this)">Select tools&hellip;</button><div class="ms-panel"></div></div>
+        </div>
+        <div class="dt-row"><label>Infrastructure &amp; Network</label>
+          <div class="ms-multiselect" data-domain="infra"><button type="button" class="ms-trigger" onclick="toggleMsPanel(this)">Select tools&hellip;</button><div class="ms-panel"></div></div>
+        </div>
+        <div class="dt-row"><label>Log Management &amp; Data Lake</label>
+          <div class="ms-multiselect" data-domain="log"><button type="button" class="ms-trigger" onclick="toggleMsPanel(this)">Select tools&hellip;</button><div class="ms-panel"></div></div>
+        </div>
+        <div class="dt-row"><label>Compliance &amp; Audit Readiness</label>
+          <div class="ms-multiselect" data-domain="comp"><button type="button" class="ms-trigger" onclick="toggleMsPanel(this)">Select tools&hellip;</button><div class="ms-panel"></div></div>
+        </div>
       </div>
 
       <button class="cta-btn" onclick="startAssessment()" style="width:100%;">Begin &rarr;</button>
@@ -209,7 +219,7 @@ var state = {
   sessionId: '',
   section: 0,
   answers: {},
-  domainTools: {},  // { txn: 'Dynatrace', app: 'None / no dedicated tool', ... } — set at registration
+  domainTools: {},  // { txn: ['Dynatrace','Datadog'], app: ['None / no dedicated tool'], ... } — set at registration
   sections: []  // populated by getSections() at start
 };
 
@@ -222,17 +232,57 @@ var TOOL_OPTIONS = [
 var TOOL_NONE = 'None / no dedicated tool';
 var TOOL_UNSURE = 'Not sure';
 
-function populateDomainToolSelects() {
-  document.querySelectorAll('#domain-tools-grid select[data-domain]').forEach(function(sel) {
-    var opts = '<option value="">Select a tool&hellip;</option>';
-    TOOL_OPTIONS.forEach(function(t){ opts += '<option value="' + t + '">' + t + '</option>'; });
-    opts += '<option value="' + TOOL_NONE + '">' + TOOL_NONE + '</option>';
-    opts += '<option value="' + TOOL_UNSURE + '">' + TOOL_UNSURE + '</option>';
-    sel.innerHTML = opts;
-    sel.addEventListener('change', function(){ state.domainTools[sel.dataset.domain] = sel.value; });
+// Multiple tools can genuinely cover one domain (e.g. Dynatrace + Datadog both
+// touching Application Performance), so this is a checkbox panel, not a single
+// <select> — "None" and "Not sure" are mutually exclusive with real tools and
+// with each other, since they're states, not tools.
+function populateDomainToolMultiSelects() {
+  document.querySelectorAll('.ms-multiselect[data-domain]').forEach(function(root) {
+    var domain = root.dataset.domain;
+    var panel  = root.querySelector('.ms-panel');
+    var html = '';
+    TOOL_OPTIONS.forEach(function(t){ html += '<label class="ms-opt"><input type="checkbox" value="' + t + '">' + t + '</label>'; });
+    html += '<div class="ms-sep"></div>';
+    html += '<label class="ms-opt"><input type="checkbox" value="' + TOOL_NONE + '">' + TOOL_NONE + '</label>';
+    html += '<label class="ms-opt"><input type="checkbox" value="' + TOOL_UNSURE + '">' + TOOL_UNSURE + '</label>';
+    panel.innerHTML = html;
+    panel.querySelectorAll('input[type=checkbox]').forEach(function(cb){
+      cb.addEventListener('change', function(){ onDomainToolChange(domain, root, cb); });
+    });
   });
 }
-populateDomainToolSelects();
+
+function onDomainToolChange(domain, root, changedCb) {
+  var exclusive = [TOOL_NONE, TOOL_UNSURE];
+  var boxes = Array.prototype.slice.call(root.querySelectorAll('.ms-panel input[type=checkbox]'));
+  if (changedCb.checked) {
+    // Checking an exclusive state clears every other checkbox; checking a real
+    // tool clears whichever exclusive state was set.
+    var clearOthers = exclusive.indexOf(changedCb.value) !== -1;
+    boxes.forEach(function(b){
+      if (b === changedCb) return;
+      if (clearOthers || exclusive.indexOf(b.value) !== -1) b.checked = false;
+    });
+  }
+  var selected = boxes.filter(function(b){ return b.checked; }).map(function(b){ return b.value; });
+  state.domainTools[domain] = selected;
+  var trigger = root.querySelector('.ms-trigger');
+  trigger.textContent = selected.length ? selected.join(', ') : 'Select tools…';
+  trigger.classList.toggle('has-selection', selected.length > 0);
+}
+
+function toggleMsPanel(btn) {
+  var root = btn.closest('.ms-multiselect');
+  var wasOpen = root.classList.contains('open');
+  document.querySelectorAll('.ms-multiselect.open').forEach(function(r){ r.classList.remove('open'); });
+  if (!wasOpen) root.classList.add('open');
+}
+document.addEventListener('click', function(e){
+  if (!e.target.closest('.ms-multiselect')) {
+    document.querySelectorAll('.ms-multiselect.open').forEach(function(r){ r.classList.remove('open'); });
+  }
+});
+populateDomainToolMultiSelects();
 
 // ─── NAVIGATION ───────────────────────────────────────────────────────────────
 function goTo(id) {
@@ -558,12 +608,13 @@ function generateReport() {
   var rankedGaps = gaps.slice().sort(function(a, b) {
     return (scores[a.id].pct - scores[b.id].pct) || (b.weight - a.weight);
   });
-  var priorityTail = ['your highest-leverage improvement area', 'your next priority', 'round this out once the above are underway'];
+  var priorityTail = ['your highest-leverage improvement area', 'your next priority'];
+  var priorityTailRest = 'also worth addressing once the above are underway';
 
   reportHTML += '<div class="next-steps"><h3>Recommended next steps</h3><ul class="ns-list">';
   rankedGaps.forEach(function(g, i){
     var pct = scores[g.id].pct;
-    var tail = priorityTail[i] || ('priority ' + (i + 1));
+    var tail = priorityTail[i] || priorityTailRest;
     reportHTML += '<li><strong>Priority ' + (i + 1) + '</strong> &mdash; Address the <strong>' + g.label + '</strong> gap (' + pct + '%): ' + tail + '.</li>';
   });
   reportHTML += '<li>Explore a live demo or a Proof of Value with VuNet, scoped to your top gap domains &mdash; see it against your own data within 2 weeks.</li>';
@@ -691,23 +742,24 @@ window.addEventListener('resize', scaleRoadmapCharts);
 function buildToolCorrelation(scores) {
   var dt = state.domainTools || {};
   var pairs = state.sections.map(function(sec) {
-    return { id: sec.id, label: sec.label, tool: dt[sec.id] || '', pct: scores[sec.id].pct };
+    return { id: sec.id, label: sec.label, tools: dt[sec.id] || [], pct: scores[sec.id].pct };
   });
-  var specified = pairs.filter(function(p){ return p.tool && p.tool !== TOOL_UNSURE; });
+  var specified = pairs.filter(function(p){ return p.tools.length > 0 && p.tools[0] !== TOOL_UNSURE; });
   if (specified.length === 0) return '';
 
   function isSiloed(p) { return p.pct !== null && p.pct < GAP_THRESHOLD; }
-  var named = specified.filter(function(p){ return p.tool !== TOOL_NONE; });
+  var named = specified.filter(function(p){ return p.tools[0] !== TOOL_NONE; });
 
-  // Domains with a real tool assigned that still score as siloed/fragmented —
+  // Domains with real tool(s) assigned that still score as siloed/fragmented —
   // the most actionable, counterintuitive signal.
   var mismatches = named.filter(function(p){ return isSiloed(p); });
   // Domains with no dedicated tool that also score low — expected, not a surprise.
-  var noToolGaps = specified.filter(function(p){ return p.tool === TOOL_NONE && isSiloed(p); });
+  var noToolGaps = specified.filter(function(p){ return p.tools[0] === TOOL_NONE && isSiloed(p); });
 
-  // Consolidation: does one tool cover more than one domain?
+  // Consolidation: does one tool cover more than one domain? (A domain can list
+  // several tools, so this counts by (domain, tool) pair, not by domain.)
   var byTool = {};
-  named.forEach(function(p){ (byTool[p.tool] = byTool[p.tool] || []).push(p.label); });
+  named.forEach(function(p){ p.tools.forEach(function(t){ (byTool[t] = byTool[t] || []).push(p.label); }); });
   var sharedTool = Object.keys(byTool).filter(function(t){ return byTool[t].length > 1; })[0];
   var distinctToolCount = Object.keys(byTool).length;
 
@@ -717,17 +769,17 @@ function buildToolCorrelation(scores) {
     headline = mismatches.length === 1
       ? 'Signal: a named tool isn\'t translating to maturity'
       : 'Signal: named tools aren\'t translating to maturity in ' + mismatches.length + ' domains';
-    body = 'You use <strong>' + m.tool + '</strong> for <strong>' + m.label + '</strong>, yet this domain scores '
+    body = 'You use <strong>' + m.tools.join(', ') + '</strong> for <strong>' + m.label + '</strong>, yet this domain scores '
       + m.pct + '% &mdash; still fragmented or manual. '
       + (mismatches.length > 1
           ? 'The same pattern shows up in ' + (mismatches.length - 1) + ' more domain' + (mismatches.length > 2 ? 's' : '') + ' ('
-            + mismatches.slice(1).map(function(p){ return p.label + ' with ' + p.tool; }).join(', ') + '). '
+            + mismatches.slice(1).map(function(p){ return p.label + ' with ' + p.tools.join(', '); }).join(', ') + '). '
           : '')
       + 'That usually points to incomplete rollout or a process gap, not a tooling gap.';
   } else if (distinctToolCount >= 4) {
     headline = 'Signal: a different tool per domain';
     body = 'You\'re running ' + distinctToolCount + ' different tools across your five domains ('
-      + named.map(function(p){ return p.label + ': ' + p.tool; }).join('; ') + '). '
+      + named.map(function(p){ return p.label + ': ' + p.tools.join(', '); }).join('; ') + '). '
       + 'That\'s fragmentation by function, not just by count &mdash; each domain likely has its own blind spot at the seams.';
   } else if (sharedTool) {
     headline = 'Real consolidation, not just tool count';

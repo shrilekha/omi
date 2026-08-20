@@ -220,6 +220,25 @@ input:focus, select:focus, textarea:focus { border-color: var(--magenta); }
 }
 .dt-row select:focus { border-color: var(--magenta); outline: none; }
 
+.ms-multiselect { position: relative; }
+.ms-trigger {
+  width: 100%; text-align: left; border: 1.5px solid #e5e7eb; border-radius: var(--r);
+  padding: 8px 10px; font-family: 'DM Sans', sans-serif; font-size: 12.5px; color: #9ca3af;
+  background: #fff; cursor: pointer;
+}
+.ms-trigger.has-selection { color: #374151; }
+.ms-multiselect.open .ms-trigger { border-color: var(--magenta); }
+.ms-panel {
+  display: none; position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0;
+  background: #fff; border: 1.5px solid #e5e7eb; border-radius: var(--r);
+  padding: 6px; max-height: 220px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+.ms-multiselect.open .ms-panel { display: block; }
+.ms-opt { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #374151; padding: 5px 6px; border-radius: 6px; cursor: pointer; }
+.ms-opt:hover { background: var(--magenta-light); }
+.ms-opt input { margin: 0; flex-shrink: 0; }
+.ms-sep { height: 1px; background: #e5e7eb; margin: 6px 4px; }
+
 .error-msg { color: #dc2626; font-size: 12px; margin-top: -1rem; margin-bottom: 1rem; display: none; }
 
 /* ── ASSESSMENT ───────────────────────────────────────────────────────────── */
