@@ -1027,6 +1027,36 @@ function buildVuNetRecs(scores) {
   return html;
 }
 
+// ─── PDF COVER PAGE ─────────────────────────────────────────────────────────────
+// PDF-only — never shown on the live/printed screen, just prepended to the
+// off-screen clone downloadPDF() renders, and forced onto its own page (see
+// the coverBottomPx seed below) regardless of the usual safe-break sizing.
+function buildCoverPageHTML(scores) {
+  var band = getBand(scores.overall);
+  var name = (state.fname || '') + (state.lname ? ' ' + state.lname : '') || 'Anonymous';
+  var context = [state.persona, state.sector, state.country].filter(Boolean).join(' &middot; ');
+  var date = new Date().toLocaleDateString('en-IN', {day:'numeric', month:'long', year:'numeric'});
+  var overallDisplay = scores.overall === null ? '&mdash;' : scores.overall;
+
+  return '<div class="pdf-cover-page" style="width:1200px;height:1680px;background:#0f1923;color:#fff;'
+    + 'display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;'
+    + 'padding:0 90px;box-sizing:border-box;">'
+    + '<div style="width:64px;height:64px;border-radius:16px;background:#C60675;display:flex;align-items:center;justify-content:center;margin-bottom:36px;">'
+    + '<svg viewBox="0 0 20 20" fill="none" width="30" height="30" xmlns="http://www.w3.org/2000/svg">'
+    + '<path d="M3 14 L7 8 L10 11 L13 6 L17 10" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+    + '<circle cx="17" cy="10" r="2" fill="#fff"/></svg></div>'
+    + '<p style="font-size:14px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin:0 0 22px;">Observability Maturity Report</p>'
+    + '<h1 style="font-family:\'DM Serif Display\',serif;font-weight:400;font-size:52px;line-height:1.25;margin:0 0 28px;max-width:920px;">Where does your organisation stand on the observability maturity journey?</h1>'
+    + '<p style="font-size:19px;color:rgba(255,255,255,0.72);margin:0 0 4px;">Prepared for ' + name + '</p>'
+    + (context ? '<p style="font-size:15px;color:rgba(255,255,255,0.5);margin:0 0 60px;">' + context + '</p>' : '<div style="margin-bottom:60px;"></div>')
+    + '<div style="display:flex;align-items:baseline;gap:14px;margin-bottom:20px;">'
+    + '<span style="font-family:\'DM Sans\',sans-serif;font-size:104px;font-weight:700;line-height:1;">' + overallDisplay + '</span>'
+    + '<span style="font-size:26px;color:rgba(255,255,255,0.4);">/100</span></div>'
+    + '<span class="maturity-band ' + band.cls + '" style="font-size:15px;padding:8px 26px;">' + band.name + '</span>'
+    + '<p style="margin-top:70px;font-size:13.5px;color:rgba(255,255,255,0.4);">' + date + '</p>'
+    + '</div>';
+}
+
 // ─── PDF DOWNLOAD ─────────────────────────────────────────────────────────────
 function downloadPDF() {
   var actionsEl = document.querySelector('.pdf-actions');
@@ -1043,19 +1073,36 @@ function downloadPDF() {
   clone.style.cssText += ';position:absolute;top:0;left:-9999px;width:1200px;max-width:none;';
   var cloneActions = clone.querySelector('.pdf-actions');
   if (cloneActions) cloneActions.style.display = 'none';
+
+  // Cover page goes in front of everything else, PDF-only.
+  var coverWrap = document.createElement('div');
+  coverWrap.innerHTML = buildCoverPageHTML(state.lastScores || computeScores());
+  var coverEl = coverWrap.firstElementChild;
+  clone.insertBefore(coverEl, clone.firstChild);
+  // .report-wrap's own top padding would otherwise leave a pale gap above
+  // the cover's full-bleed background — the cover supplies its own spacing.
+  clone.style.paddingTop = '0';
+
   document.body.appendChild(clone);
 
-  var containerRect = clone.getBoundingClientRect();
-  var safeBreaks = [];
-  clone.querySelectorAll(
-    '.report-hero, .results-grid, .roadmap-card, .section-detail, .vunet-gap-box, .next-steps, .report-footer'
-  ).forEach(function(block) {
-    var top = block.getBoundingClientRect().top - containerRect.top;
-    if (top > 10) safeBreaks.push(top);
-  });
-  safeBreaks.sort(function(a, b) { return a - b; });
-
+  // Measure positions only after web fonts have actually swapped in — doing
+  // it beforehand risks a small layout shift (serif font arriving late)
+  // between measurement and rasterization, which the original flexible
+  // safe-breaks tolerated fine but a hard cut like the cover's cannot: a few
+  // stray px of the next section bleeding onto the bottom of an otherwise
+  // full-bleed dark cover page is very visible.
   document.fonts.ready.then(function() {
+    var containerRect = clone.getBoundingClientRect();
+    var coverBottom = coverEl.getBoundingClientRect().bottom - containerRect.top;
+    var safeBreaks = [];
+    clone.querySelectorAll(
+      '.report-hero, .results-grid, .roadmap-card, .section-detail, .vunet-gap-box, .next-steps, .report-footer'
+    ).forEach(function(block) {
+      var top = block.getBoundingClientRect().top - containerRect.top;
+      if (top > coverBottom + 10) safeBreaks.push(top);
+    });
+    safeBreaks.sort(function(a, b) { return a - b; });
+
     html2canvas(clone, {
       scale: 2,
       useCORS: true,
@@ -1082,7 +1129,10 @@ function downloadPDF() {
       // CSS positions measured at 1200px → multiply by scale2 for canvas pixels
       var breaksPx = safeBreaks.map(function(b) { return Math.round(b * scale2); });
 
-      var cuts = [0];
+      // The cover always gets its own first page, full stop — not subject to
+      // the usual "closest safe break under maxPagePx" sizing below, since
+      // it's deliberately sized to roughly fill one page on its own.
+      var cuts = [0, Math.round(coverBottom * scale2)];
       while (true) {
         var last  = cuts[cuts.length - 1];
         var ideal = last + maxPagePx;
