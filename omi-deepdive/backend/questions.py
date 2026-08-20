@@ -28,6 +28,7 @@ DIMENSIONS = [
     {
         "id": "network",
         "name": "Network Layer",
+        "icon": "🌐",
         "weight": 15,
         "na_allowed": False,
         "tool_question": {
@@ -134,6 +135,7 @@ DIMENSIONS = [
     {
         "id": "infra",
         "name": "Infrastructure & Compute",
+        "icon": "🖥",
         "weight": 10,
         "na_allowed": False,
         "tool_question": {
@@ -217,6 +219,7 @@ DIMENSIONS = [
     {
         "id": "apm",
         "name": "Application Performance (APM)",
+        "icon": "⚡",
         "weight": 15,
         "na_allowed": False,
         "tool_question": {
@@ -314,6 +317,7 @@ DIMENSIONS = [
     {
         "id": "rum",
         "name": "Real User Monitoring / Digital Experience",
+        "icon": "📱",
         "weight": 10,
         "na_allowed": True,
         "na_label": "Not applicable — this app has no direct end-user interface "
@@ -398,6 +402,7 @@ DIMENSIONS = [
     {
         "id": "synthetic",
         "name": "Synthetic / Proactive Monitoring",
+        "icon": "🤖",
         "weight": 10,
         "na_allowed": False,
         "tool_question": {
@@ -463,6 +468,7 @@ DIMENSIONS = [
     {
         "id": "biztxn",
         "name": "Business Transaction / Journey Observability",
+        "icon": "💳",
         "weight": 25,
         "na_allowed": False,
         "tool_question": {
@@ -565,6 +571,7 @@ DIMENSIONS = [
     {
         "id": "correlation",
         "name": "Cross-Layer Correlation & Alerting",
+        "icon": "🔗",
         "weight": 10,
         "na_allowed": False,
         "tool_question": {
@@ -634,6 +641,7 @@ DIMENSIONS = [
     {
         "id": "logs",
         "name": "Log Observability",
+        "icon": "📦",
         "weight": 5,
         "na_allowed": False,
         "tool_question": {

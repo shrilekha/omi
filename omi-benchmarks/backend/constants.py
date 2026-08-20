@@ -44,24 +44,35 @@ SECTOR_SHORT_LABELS = {
     'telecom': 'Telecom', 'energy': 'Energy', 'manufacturing': 'Manufacturing',
 }
 
-# Geo — same values as OMI's registration country dropdown.
+# Geo — deliberately coarser than OMI's own registration country dropdown
+# (India / Singapore / Middle East / UK / US / Australia / Other). That finer
+# breakdown drives *question content* in OMI (Middle East gets a GCC-specific
+# regulatory variant, everyone else non-India gets an _intl variant) and is
+# worth keeping there, but multiplied through the benchmark grid it's most of
+# why a single metric was 360 rows: the customer base is overwhelmingly
+# Indian, so a detailed split across a handful of international customers
+# isn't worth the entry burden. OMI's backend (OMI_GEO_TO_BENCHMARK_GEO in
+# backend/app.py) collapses its own finer country value down to one of these
+# before calling this service; omi-deepdive stores directly in this coarser
+# vocabulary since its org-creation geo field has no content-selection role.
 GEOS = [
     ('all', 'All regions'),
     ('India', 'India'),
     ('Middle East', 'Middle East'),
-    ('Singapore', 'Singapore'),
-    ('United Kingdom', 'United Kingdom'),
-    ('United States', 'United States'),
-    ('Australia', 'Australia'),
-    ('Other', 'Other'),
+    ('International', 'International (other)'),
 ]
 
+# Revenue bands, INR-denominated (₹1 Cr = ₹10 million) since the customer
+# base is overwhelmingly Indian — set here rather than behind a USD/INR
+# toggle for now; add one later if a meaningful international volume shows
+# up. Codes are unchanged from the original USD bands (under_100m etc.) so
+# nothing already stored needs to migrate — only the *label* changed.
 REVENUE_BANDS = [
     ('all', 'All revenue bands'),
-    ('under_100m', '<$100M'),
-    ('100m_1b', '$100M–$1B'),
-    ('1b_10b', '$1B–$10B'),
-    ('over_10b', '>$10B'),
+    ('under_100m', '<₹800 Cr'),
+    ('100m_1b', '₹800 Cr – ₹8,000 Cr'),
+    ('1b_10b', '₹8,000 Cr – ₹80,000 Cr'),
+    ('over_10b', '>₹80,000 Cr'),
 ]
 
 # Metric = a capability area, entered ONCE and read by both OMI and

@@ -32,6 +32,18 @@ OMI_METRIC_TO_CANONICAL = {
 }
 CANONICAL_TO_OMI_METRIC = {v: k for k, v in OMI_METRIC_TO_CANONICAL.items()}
 
+# omi-benchmarks' geo axis is deliberately coarser than OMI's own country
+# dropdown (which drives real question-content differences — Middle East
+# gets a GCC regulatory variant, everyone else non-India gets _intl). This
+# collapses OMI's finer country value down to omi-benchmarks' 3 buckets
+# before every /api/benchmarks call — see the comment on GEOS in
+# omi-benchmarks/backend/constants.py for why.
+OMI_COUNTRY_TO_BENCHMARK_GEO = {
+    'India': 'India', 'Middle East': 'Middle East',
+    'Singapore': 'International', 'United Kingdom': 'International',
+    'United States': 'International', 'Australia': 'International', 'Other': 'International',
+}
+
 
 @app.route('/')
 def index():
@@ -57,10 +69,15 @@ def benchmarks_proxy():
         return jsonify({})
 
     params = {}
-    for key in ('sector', 'geo', 'revenue_band'):
-        value = request.args.get(key, '')
-        if value:
-            params[key] = value
+    sector = request.args.get('sector', '')
+    if sector:
+        params['sector'] = sector
+    geo = request.args.get('geo', '')
+    if geo:
+        params['geo'] = OMI_COUNTRY_TO_BENCHMARK_GEO.get(geo, 'International')
+    revenue_band = request.args.get('revenue_band', '')
+    if revenue_band:
+        params['revenue_band'] = revenue_band
 
     try:
         resp = requests.get(

@@ -40,7 +40,7 @@ one peer group:
 | `sample_size`, `source`, `effective_date`, `created_by` | optional context |
 
 `all` is a real stored value, not a null — you can enter a row at any
-granularity, from fully specific (BFSI, India, $1B–$10B) to a broad rollup
+granularity, from fully specific (BFSI, India, ₹8,000 Cr–₹80,000 Cr) to a broad rollup
 (all sectors, all geos, all revenue bands = the global figure for that
 metric). **`(metric, sector, geo, revenue_band)` is unique** — there's
 exactly one row for any given combination.
@@ -77,7 +77,7 @@ order** when the exact combination isn't stored: drop revenue band → drop
 geo → drop sector (down to the fully global row). It returns which axes
 actually held after relaxation, so a caller can be honest about what's being
 shown ("peers in Banking" rather than silently claiming "peers in Banking,
-India, $1B–$10B" once revenue or geo had to give).
+India, ₹8,000 Cr–₹80,000 Cr" once revenue or geo had to give).
 
 This is deliberately *not* a live aggregation across whatever rows happen to
 exist — it's a fixed lookup-with-fallback across rows someone entered on
@@ -105,13 +105,21 @@ password-only tradeoff OMI and omi-deepdive both started with (no per-user
 identity; anyone with the key has full access).
 
 `/admin/benchmarks` shows the **entire sector × geo × revenue-band grid**
-for one metric at a time (pick it from the dropdown — up to 360 rows),
-already populated with every existing value; the rest are blank editable
-rows, not something you "add." Type a benchmark value into a cell and tab
-out — it saves itself (debounced so filling in several fields on one row is
-one request, not several). Sector/geo/revenue filters narrow which rows are
-shown; they're a convenience, not a gate. A small **×** on a filled row
-clears it (deletes the record).
+for one metric at a time (pick it from the dropdown — up to 180 rows: 9
+sectors × 4 geos × 5 revenue bands), already populated with every existing
+value; the rest are blank editable rows, not something you "add." Type a
+benchmark value into a cell and tab out — it saves itself (debounced so
+filling in several fields on one row is one request, not several).
+Sector/geo/revenue filters narrow which rows are shown; they're a
+convenience, not a gate. A small **×** on a filled row clears it (deletes
+the record).
+
+The geo axis (India / Middle East / International) is deliberately coarser
+than OMI's own country dropdown, and revenue bands are INR-denominated
+(₹ Crore) — both because the customer base is overwhelmingly Indian and a
+finer international split isn't worth the entry burden it would add. See
+the comments on `GEOS`/`REVENUE_BANDS` in `backend/constants.py` if that
+balance ever needs to change.
 
 A save that's still pending when you navigate away (e.g. straight to Log
 out) is flushed immediately via `beforeunload`/`pagehide`, and the request

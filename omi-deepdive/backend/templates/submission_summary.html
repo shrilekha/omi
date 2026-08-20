@@ -4,23 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>omi-deepdive — {{ app_row.name }} submission</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <div class="wrap">
-  <header class="page-header">
-    <span class="badge no-print">omi-deepdive</span>
-    <h1>{% if just_submitted %}Submitted{% else %}Your submission{% endif %} — {{ app_row.name }}</h1>
-    <p class="sub">{{ app_row.org_name }}</p>
+  <header class="report-header">
+    <span class="report-kicker no-print">omi-deepdive &middot; {% if just_submitted %}submitted{% else %}submission{% endif %}</span>
+    <h1>{{ app_row.name }}</h1>
+    <p class="report-header-sub">{{ app_row.org_name }}</p>
   </header>
 
   {% set band_class_map = {'Reactive': 'low', 'Aware': 'low', 'Structured': 'mid', 'Proactive': 'good', 'Adaptive': 'great'} %}
   {% set overall_band = band_class_map.get(result.maturity_band, 'mid') %}
-  <section class="card center">
-    <div class="score-circle sc-{{ overall_band }}">{{ result.overall_score }}</div>
-    <p class="band sc-{{ overall_band }}">{{ result.maturity_band }}</p>
+  <section class="card center score-hero">
+    <div class="score-circle sc-{{ overall_band }}">
+      <span class="score-num">{{ result.overall_score }}</span>
+      <span class="score-max">/100</span>
+    </div>
+    <p class="band-pill sc-{{ overall_band }}">{{ result.maturity_band }}</p>
     {% if benchmarks.overall %}
-    <p class="sub" style="margin-top:-4px;">Peer benchmark: {{ benchmarks.overall.benchmark_value|round(0,'floor')|int }}%{% if benchmarks.overall.sector != 'all' or benchmarks.overall.geo != 'all' %} ({{ [org_sector_label, org_geo_label]|select|join(', ') }}){% endif %}</p>
+    <p class="sub" style="margin-top:2px;">Peer benchmark: <strong>{{ benchmarks.overall.benchmark_value|round(0,'floor')|int }}%</strong>{% if benchmarks.overall.sector != 'all' or benchmarks.overall.geo != 'all' %} ({{ [org_sector_label, org_geo_label]|select|join(', ') }}){% endif %}</p>
     {% endif %}
     <p class="sub">
       {% if just_submitted %}
@@ -62,7 +67,8 @@
   {% set bench = benchmarks.get(dim.id) %}
   <section class="card dimension dim-{{ band }}">
     <h2>
-      {{ dim.name }}
+      <span class="dim-icon">{{ dim.icon }}</span>
+      <span class="dim-title">{{ dim.name }}</span>
       <span class="dim-badge dim-badge-{{ band }}">{% if is_na %}N/A{% elif dscore is none %}Not answered{% else %}{{ dscore|round(0, 'floor')|int }}%{% endif %}</span>
       {% if bench and not is_na and dscore is not none %}
       <span class="sub" style="font-size:12px; font-weight:400;">Peer benchmark {{ bench.benchmark_value|round(0,'floor')|int }}%</span>
