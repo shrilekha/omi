@@ -4,14 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>omi-deepdive — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<div class="wrap narrow login-wrap">
+<div class="login-page">
   <section class="card login-card">
-    <span class="badge">VuNet Systems</span>
-    <h1>Observability Maturity Index<br>: Deep Dive</h1>
-    <p class="sub">Sign in to create organizations, manage app observability maturity indices, and view consolidated reports.</p>
+    <div class="logo-mark">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" width="22" height="22">
+        <path d="M3 14 L7 8 L10 11 L13 6 L17 10" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="17" cy="10" r="2" fill="#fff"/>
+      </svg>
+    </div>
+    <p class="login-kicker">OMI suite &middot; deep dive admin</p>
+    <h1>Observability Maturity Index</h1>
+    <p class="sub login-tag">Sign in to create organizations, run per-app end-to-end assessments, and view consolidated reports.</p>
 
     {% if error %}<p class="login-error">{{ error }}</p>{% endif %}
 

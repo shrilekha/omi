@@ -4,19 +4,32 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>omi-benchmarks — Admin login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<div class="wrap" style="max-width:380px; padding-top:4rem;">
-  <span class="badge">omi-benchmarks · admin</span>
-  <h1>Admin login</h1>
-  {% if error %}<div class="error-box">{{ error }}</div>{% endif %}
-  <form method="POST" class="card">
-    <label>Admin key
-      <input type="password" name="key" autofocus required>
-    </label>
-    <button type="submit" class="submit">Sign in</button>
-  </form>
+<div class="login-page">
+  <div class="login-card">
+    <div class="logo-mark">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" width="22" height="22">
+        <path d="M3 14 L7 8 L10 11 L13 6 L17 10" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="17" cy="10" r="2" fill="#fff"/>
+      </svg>
+    </div>
+    <p class="login-kicker">OMI suite &middot; benchmarks admin</p>
+    <h1>Industry benchmarks</h1>
+    <p class="login-tag">Sign in to manage the peer-comparison data shown across OMI's and omi-deepdive's reports.</p>
+
+    {% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+
+    <form method="POST">
+      <label>Admin key
+        <input type="password" name="key" autofocus required placeholder="Enter the shared admin key">
+      </label>
+      <button type="submit" class="submit">Sign in</button>
+    </form>
+  </div>
 </div>
 </body>
 </html>

@@ -66,98 +66,99 @@ def admin_logout():
     return redirect(url_for('admin_login'))
 
 
+def _decorate(row):
+    """Add the display labels _row_pair.html needs, without mutating the DB row dict in place."""
+    row = dict(row)
+    row['metric_label'] = dict(METRICS.get(row['tool'], [])).get(row['metric'], row['metric'])
+    row['sector_label'] = dict(SECTORS).get(row['sector'], row['sector'])
+    row['geo_label'] = dict(GEOS).get(row['geo'], row['geo'])
+    row['revenue_label'] = dict(REVENUE_BANDS).get(row['revenue_band'], row['revenue_band'])
+    return row
+
+
+_BLANK_ROW = {
+    'id': 'new', 'tool': '', 'metric': '', 'sector': 'all', 'geo': 'all', 'revenue_band': 'all',
+    'median_score': None, 'sample_size': None, 'source': None, 'effective_date': None, 'created_by': None,
+}
+
+_ROW_TEMPLATE_CTX = dict(tools=TOOLS, tool_labels=TOOL_LABELS, sectors=SECTORS, geos=GEOS,
+                          revenue_bands=REVENUE_BANDS, metrics_by_tool=METRICS)
+
+
 @app.route('/admin/benchmarks')
 @require_admin
 def admin_list():
     tool = request.args.get('tool') or None
     sector = request.args.get('sector') or None
-    rows = list_benchmarks(tool=tool, sector=sector)
-    for r in rows:
-        r['metric_label'] = dict(METRICS.get(r['tool'], [])).get(r['metric'], r['metric'])
-        r['sector_label'] = dict(SECTORS).get(r['sector'], r['sector'])
-        r['geo_label'] = dict(GEOS).get(r['geo'], r['geo'])
-        r['revenue_label'] = dict(REVENUE_BANDS).get(r['revenue_band'], r['revenue_band'])
+    rows = [_decorate(r) for r in list_benchmarks(tool=tool, sector=sector)]
     return render_template(
-        'admin_list.html', rows=rows, tools=TOOLS, tool_labels=TOOL_LABELS,
-        sectors=SECTORS, selected_tool=tool, selected_sector=sector,
+        'admin_list.html', rows=rows, blank_row=_BLANK_ROW, error=None, edit_only=False,
+        selected_tool=tool, selected_sector=sector, **_ROW_TEMPLATE_CTX,
     )
 
 
-@app.route('/admin/benchmarks/new', methods=['GET', 'POST'])
+@app.route('/admin/benchmarks/save', methods=['POST'])
 @require_admin
-def admin_new():
-    return _admin_form(benchmark_id=None)
+def admin_save():
+    """Inline-editor endpoint (see admin_list.html / _row_pair.html) — adds or
+    updates one row and returns the rendered row-pair HTML fragment to swap
+    into the table via fetch(), so the page never fully reloads. On a
+    validation error, returns just the editor with the error and the
+    submitted values preserved, instead of the saved row."""
+    raw_id = request.form.get('id', '').strip()
+    benchmark_id = int(raw_id) if raw_id.isdigit() else None
 
-
-@app.route('/admin/benchmarks/<int:benchmark_id>/edit', methods=['GET', 'POST'])
-@require_admin
-def admin_edit(benchmark_id):
-    return _admin_form(benchmark_id=benchmark_id)
-
-
-def _admin_form(benchmark_id):
-    existing = get_benchmark(benchmark_id) if benchmark_id else None
-    if benchmark_id and not existing:
-        abort(404)
+    tool = request.form.get('tool', '')
+    metric = request.form.get('metric', '')
+    valid_metrics = dict(METRICS.get(tool, []))
+    try:
+        median_score = float(request.form.get('median_score', ''))
+    except ValueError:
+        median_score = None
 
     error = None
-    if request.method == 'POST':
-        tool = request.form.get('tool', '')
-        metric = request.form.get('metric', '')
-        valid_metrics = dict(METRICS.get(tool, []))
+    if tool not in TOOLS:
+        error = 'Choose a valid tool.'
+    elif metric not in valid_metrics:
+        error = 'Choose a metric that belongs to the selected tool.'
+    elif median_score is None or not (0 <= median_score <= 100):
+        error = 'Median score must be a number between 0 and 100.'
+
+    if not error:
+        sample_size_raw = request.form.get('sample_size', '').strip()
+        data = {
+            'tool': tool,
+            'metric': metric,
+            'sector': request.form.get('sector', 'all'),
+            'geo': request.form.get('geo', 'all'),
+            'revenue_band': request.form.get('revenue_band', 'all'),
+            'median_score': median_score,
+            'sample_size': int(sample_size_raw) if sample_size_raw.isdigit() else None,
+            'source': request.form.get('source', '').strip() or None,
+            'effective_date': request.form.get('effective_date', '').strip() or None,
+            'created_by': request.form.get('created_by', '').strip() or None,
+        }
         try:
-            median_score = float(request.form.get('median_score', ''))
-        except ValueError:
-            median_score = None
+            row_id = upsert_benchmark(data, benchmark_id=benchmark_id)
+            row = _decorate(get_benchmark(row_id))
+            return render_template('_row_pair.html', row=row, error=None, edit_only=False, **_ROW_TEMPLATE_CTX)
+        except Exception as e:
+            # Most likely the UNIQUE(tool, metric, sector, geo, revenue_band)
+            # constraint — that exact peer-group combination already has a row.
+            error = ('A benchmark for this exact tool/metric/sector/geo/revenue '
+                      'combination already exists — edit that row instead.')
+            app.logger.warning(f'upsert_benchmark failed: {e}')
 
-        if tool not in TOOLS:
-            error = 'Choose a valid tool.'
-        elif metric not in valid_metrics:
-            error = 'Choose a metric that belongs to the selected tool.'
-        elif median_score is None or not (0 <= median_score <= 100):
-            error = 'Median score must be a number between 0 and 100.'
-        else:
-            sample_size_raw = request.form.get('sample_size', '').strip()
-            data = {
-                'tool': tool,
-                'metric': metric,
-                'sector': request.form.get('sector', 'all'),
-                'geo': request.form.get('geo', 'all'),
-                'revenue_band': request.form.get('revenue_band', 'all'),
-                'median_score': median_score,
-                'sample_size': int(sample_size_raw) if sample_size_raw.isdigit() else None,
-                'source': request.form.get('source', '').strip() or None,
-                'effective_date': request.form.get('effective_date', '').strip() or None,
-                'created_by': request.form.get('created_by', '').strip() or None,
-            }
-            try:
-                upsert_benchmark(data, benchmark_id=benchmark_id)
-                return redirect(url_for('admin_list'))
-            except Exception as e:
-                # Most likely the UNIQUE(tool, metric, sector, geo, revenue_band)
-                # constraint — that exact peer-group combination already has a row.
-                error = ('A benchmark for this exact tool/metric/sector/geo/revenue '
-                         'combination already exists — edit that row instead.')
-                app.logger.warning(f'upsert_benchmark failed: {e}')
-
-        # Re-render with what the user actually typed, not the stale `existing`
-        # (or nothing, on a fresh /new form) — every validation branch above can
-        # reach here, so this must not assume `data` was ever built.
-        if error:
-            existing = request.form.to_dict()
-
-    return render_template(
-        'admin_form.html', existing=existing, benchmark_id=benchmark_id, error=error,
-        tools=TOOLS, tool_labels=TOOL_LABELS, sectors=SECTORS, geos=GEOS,
-        revenue_bands=REVENUE_BANDS, metrics_by_tool=METRICS,
-    )
+    row = request.form.to_dict()
+    row['id'] = benchmark_id if benchmark_id else 'new'
+    return render_template('_row_pair.html', row=row, error=error, edit_only=True, **_ROW_TEMPLATE_CTX), 422
 
 
 @app.route('/admin/benchmarks/<int:benchmark_id>/delete', methods=['POST'])
 @require_admin
 def admin_delete(benchmark_id):
     delete_benchmark(benchmark_id)
-    return redirect(url_for('admin_list'))
+    return ('', 204)
 
 
 # ─── Read API — server-to-server only, never called from a browser ────────────

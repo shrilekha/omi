@@ -4,40 +4,42 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>omi-benchmarks — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <div class="wrap">
   <div class="page-header">
-    <span class="badge">omi-benchmarks · admin</span>
-    <h1>Industry benchmarks</h1>
-    <p class="sub">
-      Rows here power the peer-comparison shown in OMI's report and omi-deepdive's
-      per-app and consolidated reports. A row can be entered at any granularity —
-      a specific sector/geo/revenue combination, or a coarser rollup using "All ___".
-      <a href="{{ url_for('admin_logout') }}" style="margin-left:8px;">Log out</a>
-    </p>
+    <div>
+      <span class="badge">omi-benchmarks &middot; admin</span>
+      <h1>Industry benchmarks</h1>
+      <p class="sub">
+        Rows here power the peer comparison in OMI's report and omi-deepdive's per-app and
+        consolidated reports. Enter at any granularity — a specific sector/geo/revenue
+        combination, or a coarser rollup using "All &#8288;___&#8288;".
+      </p>
+    </div>
+    <a href="{{ url_for('admin_logout') }}" class="logout-link">Log out</a>
   </div>
 
   <div class="top-actions">
     <div class="filters">
-      <select class="filter-select" onchange="location.href='{{ url_for('admin_list') }}?tool='+this.value+'&sector={{ selected_sector or '' }}'">
+      <select onchange="location.href='{{ url_for('admin_list') }}?tool='+this.value+'&sector={{ selected_sector or '' }}'">
         <option value="">All tools</option>
         {% for t in tools %}
         <option value="{{ t }}" {% if selected_tool == t %}selected{% endif %}>{{ tool_labels[t] }}</option>
         {% endfor %}
       </select>
-      <select class="filter-select" onchange="location.href='{{ url_for('admin_list') }}?tool={{ selected_tool or '' }}&sector='+this.value">
+      <select onchange="location.href='{{ url_for('admin_list') }}?tool={{ selected_tool or '' }}&sector='+this.value">
         {% for sid, label in sectors %}
         <option value="{{ sid }}" {% if selected_sector == sid %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
     </div>
-    <a href="{{ url_for('admin_new') }}" class="submit" style="text-decoration:none;">+ Add benchmark</a>
   </div>
 
   <div class="card" style="padding:0; overflow-x:auto;">
-    {% if rows %}
     <table>
       <thead>
         <tr>
@@ -45,31 +47,93 @@
           <th>Median</th><th>Sample</th><th>Effective</th><th></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="benchmarks-body">
+        {% set row = blank_row %}
+        {% include '_row_pair.html' with context %}
         {% for r in rows %}
-        <tr>
-          <td>{{ tool_labels.get(r.tool, r.tool) }}</td>
-          <td>{{ r.metric_label }}</td>
-          <td>{{ r.sector_label }}</td>
-          <td>{{ r.geo_label }}</td>
-          <td>{{ r.revenue_label }}</td>
-          <td>{{ r.median_score }}%</td>
-          <td>{{ r.sample_size or '—' }}</td>
-          <td>{{ r.effective_date or '—' }}</td>
-          <td class="row-actions">
-            <a href="{{ url_for('admin_edit', benchmark_id=r.id) }}">Edit</a>
-            <form method="POST" action="{{ url_for('admin_delete', benchmark_id=r.id) }}" style="display:inline;" onsubmit="return confirm('Delete this benchmark row?');">
-              <button type="submit">Delete</button>
-            </form>
-          </td>
-        </tr>
+          {% set row = r %}
+          {% include '_row_pair.html' with context %}
         {% endfor %}
       </tbody>
     </table>
-    {% else %}
-    <p class="empty">No benchmark rows yet{% if selected_tool or selected_sector %} for this filter{% endif %}. Add the first one.</p>
+    {% if not rows %}
+    <p class="empty">No benchmark rows yet{% if selected_tool or selected_sector %} for this filter{% endif %}. Use "+ Add benchmark" above to add the first one.</p>
     {% endif %}
   </div>
 </div>
+
+<script>
+function toggleEdit(id) {
+  var editRow = document.getElementById('edit-' + id);
+  var isHidden = editRow.style.display === 'none';
+  editRow.style.display = isHidden ? '' : 'none';
+  if (isHidden) {
+    var firstField = editRow.querySelector('select, input');
+    if (firstField) firstField.focus();
+  }
+}
+
+function filterMetrics(toolSelect) {
+  var tool = toolSelect.value;
+  var form = toolSelect.closest('form');
+  var metricSelect = form.querySelector('select[name="metric"]');
+  Array.prototype.forEach.call(metricSelect.options, function(opt) {
+    opt.hidden = tool && opt.dataset.tool !== tool;
+  });
+  var current = metricSelect.options[metricSelect.selectedIndex];
+  if (tool && current && current.dataset.tool !== tool) {
+    var firstMatch = Array.prototype.filter.call(metricSelect.options, function(o){ return o.dataset.tool === tool; })[0];
+    if (firstMatch) metricSelect.value = firstMatch.value;
+  }
+}
+// Apply once per already-rendered form (existing rows may already have a tool
+// selected, so their metric list needs the same narrowing on page load).
+document.querySelectorAll('.inline-form select[name="tool"]').forEach(filterMetrics);
+
+function submitRow(evt) {
+  evt.preventDefault();
+  var form = evt.target;
+  var id = form.querySelector('[name="id"]').value || 'new';
+  fetch('{{ url_for("admin_save") }}', { method: 'POST', body: new FormData(form) })
+    .then(function(r){ return r.text().then(function(html){ return { ok: r.ok, html: html }; }); })
+    .then(function(res) {
+      var holder = document.createElement('tbody');
+      holder.innerHTML = res.html;
+      var newNodes = Array.prototype.slice.call(holder.children);
+
+      if (id === 'new') {
+        if (res.ok) {
+          var addViewRow = document.getElementById('view-new');
+          newNodes.forEach(function(node) { addViewRow.parentNode.insertBefore(node, addViewRow.nextSibling); });
+          form.reset();
+          filterMetrics(form.querySelector('select[name="tool"]'));
+        } else {
+          document.getElementById('edit-new').replaceWith(newNodes[0]);
+        }
+      } else {
+        if (res.ok) {
+          document.getElementById('view-' + id).replaceWith(newNodes[0]);
+          document.getElementById('edit-' + id).replaceWith(newNodes[1]);
+        } else {
+          document.getElementById('edit-' + id).replaceWith(newNodes[0]);
+        }
+      }
+    })
+    .catch(function() { alert('Something went wrong saving this row — please try again.'); });
+  return false;
+}
+
+function deleteRow(id) {
+  if (!confirm('Delete this benchmark row? This can\'t be undone.')) return;
+  fetch('/admin/benchmarks/' + id + '/delete', { method: 'POST' }).then(function(r) {
+    if (r.ok) {
+      document.getElementById('view-' + id).remove();
+      document.getElementById('edit-' + id).remove();
+    } else {
+      alert('Could not delete this row.');
+    }
+  });
+}
+</script>
 </body>
 </html>
