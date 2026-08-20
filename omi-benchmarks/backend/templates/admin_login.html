@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>omi-benchmarks — Admin login</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap" style="max-width:380px; padding-top:4rem;">
+  <span class="badge">omi-benchmarks · admin</span>
+  <h1>Admin login</h1>
+  {% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+  <form method="POST" class="card">
+    <label>Admin key
+      <input type="password" name="key" autofocus required>
+    </label>
+    <button type="submit" class="submit">Sign in</button>
+  </form>
+</div>
+</body>
+</html>

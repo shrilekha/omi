@@ -11,6 +11,13 @@ CREATE TABLE IF NOT EXISTS organizations (
     id            INT AUTO_INCREMENT PRIMARY KEY,
     name          VARCHAR(255) NOT NULL,
     report_token  VARCHAR(64)  NOT NULL UNIQUE,
+    -- Set once at creation by whoever knows the client (admin/assessment_manager).
+    -- Drives the peer-benchmark comparison shown on this org's reports — no
+    -- picker for the respondent, unlike OMI where the respondent chooses.
+    -- 'all' means "not specified", same sentinel omi-benchmarks itself uses.
+    sector        VARCHAR(30)  NOT NULL DEFAULT 'all',
+    geo           VARCHAR(30)  NOT NULL DEFAULT 'all',
+    revenue_band  VARCHAR(20)  NOT NULL DEFAULT 'all',
     created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

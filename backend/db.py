@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     role             TEXT,
     sector           TEXT,
     country          TEXT,
+    revenue_band     TEXT,
     sector_archetype TEXT,
     question_variant TEXT,
     domain_tools     TEXT,
@@ -77,6 +78,8 @@ def init_db():
             conn.execute('ALTER TABLE submissions RENAME COLUMN tools TO domain_tools')
         elif 'domain_tools' not in existing_cols:
             conn.execute('ALTER TABLE submissions ADD COLUMN domain_tools TEXT')
+        if 'revenue_band' not in existing_cols:
+            conn.execute('ALTER TABLE submissions ADD COLUMN revenue_band TEXT')
         conn.commit()
         conn.close()
 
@@ -93,6 +96,7 @@ def save_submission(data):
         'role':             data.get('role', ''),
         'sector':           data.get('sector', ''),
         'country':          data.get('country', ''),
+        'revenue_band':     data.get('revenue_band', ''),
         'sector_archetype': data.get('sector_archetype', ''),
         'question_variant': data.get('question_variant', ''),
         'domain_tools':     json.dumps(data.get('domain_tools') or {}),

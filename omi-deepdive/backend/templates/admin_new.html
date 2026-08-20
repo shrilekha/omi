@@ -37,6 +37,28 @@
       <label>Organization name
         <input type="text" name="org_name" placeholder="e.g. IndusInd Bank" required>
       </label>
+      <p class="sub" style="margin-bottom:0.75rem;">
+        Sector / geo / revenue band drive the peer-benchmark comparison shown
+        on this org's reports (no picker for app owners — set once, here).
+        Leave any as "Not specified" to skip that comparison.
+      </p>
+      <div class="grid3">
+        <label>Sector
+          <select name="sector">
+            {% for sid, label in sectors %}<option value="{{ sid }}">{{ label }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Geo
+          <select name="geo">
+            {% for gid, label in geos %}<option value="{{ gid }}">{{ label }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Revenue band
+          <select name="revenue_band">
+            {% for rid, label in revenue_bands %}<option value="{{ rid }}">{{ label }}</option>{% endfor %}
+          </select>
+        </label>
+      </div>
     </section>
 
     <section class="card">

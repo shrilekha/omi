@@ -160,6 +160,15 @@
       </div>
       <p class="error-msg" id="err-location">Please select your sector and country.</p>
 
+      <p style="font-size:12px;color:#6b7280;margin-bottom:0.6rem;font-weight:600;">Annual revenue <span style="font-weight:400;">(optional — lets us show a peer comparison by revenue band)</span></p>
+      <select id="reg-revenue" style="margin-bottom:1.25rem;">
+        <option value="">Prefer not to say</option>
+        <option value="under_100m">Under $100M</option>
+        <option value="100m_1b">$100M &ndash; $1B</option>
+        <option value="1b_10b">$1B &ndash; $10B</option>
+        <option value="over_10b">Over $10B</option>
+      </select>
+
       <p style="font-size:12px;color:#6b7280;margin-bottom:0.6rem;font-weight:600;">Which tool covers each domain today? <span style="font-weight:400;">(optional, helps us spot tool-vs-practice mismatches)</span></p>
       <div class="domain-tools-grid" id="domain-tools-grid">
         <div class="dt-row"><label>Business &amp; Transaction Observability</label>
@@ -214,7 +223,7 @@
 <script>
 // ─── STATE ────────────────────────────────────────────────────────────────────
 var state = {
-  email: '', fname: '', lname: '', persona: '', sector: '', country: '',
+  email: '', fname: '', lname: '', persona: '', sector: '', country: '', revenueBand: '',
   archetype: 'technology',
   sessionId: '',
   section: 0,
@@ -350,12 +359,13 @@ function startAssessment() {
 
   var archetype = resolveArchetype(sector, country);
 
-  state.email     = email;
-  state.fname     = document.getElementById('reg-fname').value.trim();
-  state.lname     = document.getElementById('reg-lname').value.trim();
-  state.sector    = sector;
-  state.country   = country;
-  state.archetype = archetype;
+  state.email       = email;
+  state.fname       = document.getElementById('reg-fname').value.trim();
+  state.lname       = document.getElementById('reg-lname').value.trim();
+  state.sector      = sector;
+  state.country     = country;
+  state.revenueBand = document.getElementById('reg-revenue').value;
+  state.archetype   = archetype;
   state.sessionId = _uuid();
   state.section   = 0;
   state.answers   = {};
@@ -523,6 +533,7 @@ function submitToBackend(scores) {
       role:             state.persona,
       sector:           state.sector,
       country:          state.country,
+      revenue_band:     state.revenueBand,
       sector_archetype: state.archetype,
       question_variant: state.archetype,
       domain_tools:     state.domainTools,
@@ -598,28 +609,13 @@ function generateReport() {
     + buildRoadmap(scores)
     + '</div>';
 
+  reportHTML += buildPeerCompareCard();
   reportHTML += buildToolCorrelation(scores);
   reportHTML += buildFindings(scores);
   reportHTML += buildVuNetRecs(scores);
 
-  // Rank gaps worst-score-first (ties broken by weight, since a bigger weight
-  // moves the overall score more) so only ONE domain is ever called "highest
-  // leverage" — the rest are explicitly 2nd, 3rd, etc., not a repeated claim.
-  var rankedGaps = gaps.slice().sort(function(a, b) {
-    return (scores[a.id].pct - scores[b.id].pct) || (b.weight - a.weight);
-  });
-  var priorityTail = ['your highest-leverage improvement area', 'your next priority'];
-  var priorityTailRest = 'also worth addressing once the above are underway';
-
-  reportHTML += '<div class="next-steps"><h3>Recommended next steps</h3><ul class="ns-list">';
-  rankedGaps.forEach(function(g, i){
-    var pct = scores[g.id].pct;
-    var tail = priorityTail[i] || priorityTailRest;
-    reportHTML += '<li><strong>Priority ' + (i + 1) + '</strong> &mdash; Address the <strong>' + g.label + '</strong> gap (' + pct + '%): ' + tail + '.</li>';
-  });
-  reportHTML += '<li>Explore a live demo or a Proof of Value with VuNet, scoped to your top gap domains &mdash; see it against your own data within 2 weeks.</li>';
-  reportHTML += '<li>Benchmark your score against peer organisations in your sector (available on request).</li>';
-  reportHTML += '</ul></div>';
+  reportHTML += '<div class="next-steps"><h3>Recommended next steps</h3><ul class="ns-list" id="next-steps-list">'
+    + buildNextStepsList(gaps, scores, null) + '</ul></div>';
 
   reportHTML += '<div class="report-footer">'
     + '<p style="margin-bottom:6px;"><strong>Observability Maturity Index</strong> &mdash; An industry benchmark initiative</p>'
@@ -629,6 +625,70 @@ function generateReport() {
   document.getElementById('report-content').innerHTML = reportHTML;
   goTo('screen-report');
   scaleRoadmapCharts();
+  state.lastScores = scores;
+  enhanceNextStepsWithBenchmarks(gaps, scores);
+}
+
+// ─── PEER BENCHMARK RANKING FOR NEXT STEPS ─────────────────────────────────────
+// Ranks gaps worst-first so only ONE domain is ever called "highest leverage" —
+// by default that's just the raw score, but once peer data is available a
+// domain that's merely low is ranked below one that's low *and* meaningfully
+// behind its peer median, since the latter is the more actionable signal.
+function benchGapKey(sec, scores, benchmarkData) {
+  var bench = benchmarkData && benchmarkData[sec.id];
+  var pct = scores[sec.id].pct;
+  return bench ? (pct - bench.median_score) : (pct - GAP_THRESHOLD);
+}
+
+function peerGroupPhrase(matched) {
+  if (!matched) return '';
+  var parts = [];
+  if (matched.sector_matched && state.sector) parts.push(state.sector);
+  if (matched.geo_matched && state.country) parts.push(state.country);
+  return parts.length ? (' for ' + parts.join(', ')) : ' across all industries';
+}
+
+function buildNextStepsList(gaps, scores, benchmarkData) {
+  var rankedGaps = gaps.slice().sort(function(a, b) {
+    return (benchGapKey(a, scores, benchmarkData) - benchGapKey(b, scores, benchmarkData)) || (b.weight - a.weight);
+  });
+  var priorityTail = ['your highest-leverage improvement area', 'your next priority'];
+  var priorityTailRest = 'also worth addressing once the above are underway';
+
+  var html = '';
+  rankedGaps.forEach(function(g, i){
+    var pct = scores[g.id].pct;
+    var bench = benchmarkData && benchmarkData[g.id];
+    var detail;
+    if (bench && Math.round(bench.median_score - pct) > 0) {
+      detail = Math.round(bench.median_score - pct) + ' points below the peer median ('
+        + Math.round(bench.median_score) + '%)' + peerGroupPhrase(bench.matched);
+    } else if (bench) {
+      detail = 'in line with or ahead of the peer median (' + Math.round(bench.median_score) + '%)'
+        + peerGroupPhrase(bench.matched) + ' &mdash; still worth strengthening in absolute terms';
+    } else {
+      detail = priorityTail[i] || priorityTailRest;
+    }
+    html += '<li><strong>Priority ' + (i + 1) + '</strong> &mdash; Address the <strong>' + g.label + '</strong> gap (' + pct + '%): ' + detail + '.</li>';
+  });
+  html += '<li>Explore a live demo or a Proof of Value with VuNet, scoped to your top gap domains &mdash; see it against your own data within 2 weeks.</li>';
+  return html;
+}
+
+function enhanceNextStepsWithBenchmarks(gaps, scores) {
+  if (gaps.length === 0) return;
+  var params = new URLSearchParams({ sector: baseSector(state.archetype), geo: state.country });
+  if (state.revenueBand) params.set('revenue_band', state.revenueBand);
+
+  fetch('/api/benchmarks?' + params.toString())
+    .then(function(r){ return r.ok ? r.json() : {}; })
+    .then(function(data){
+      if (!data || Object.keys(data).length === 0) return;
+      state.lastBenchmarks = data;
+      var listEl = document.getElementById('next-steps-list');
+      if (listEl) listEl.innerHTML = buildNextStepsList(gaps, scores, data);
+    })
+    .catch(function(){});
 }
 
 // ─── MATURITY ROADMAP ─────────────────────────────────────────────────────────
@@ -732,6 +792,83 @@ function scaleRoadmapCharts() {
   });
 }
 window.addEventListener('resize', scaleRoadmapCharts);
+
+// ─── PEER BENCHMARK COMPARISON ──────────────────────────────────────────────────
+// Opt-in: nothing is fetched until the respondent picks at least one lens, and
+// any combination of sector/region/revenue band can be active at once. Talks
+// only to OMI's own /api/benchmarks, which proxies server-side to the separate
+// omi-benchmarks service — never calls it directly from the browser.
+function baseSector(archetype) {
+  return (archetype || '').replace(/_gcc$|_intl$/, '');
+}
+
+function buildPeerCompareCard() {
+  var hasRevenue = !!state.revenueBand;
+  return '<div style="background:#fff;border:0.5px solid var(--line);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;">'
+    + '<p style="font-size:13px;font-weight:600;margin-bottom:4px;">Compare to your peers</p>'
+    + '<p style="font-size:12.5px;color:#6b7280;margin-bottom:0.85rem;">Pick any combination of traits to match on.</p>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+    + '<button type="button" class="peer-chip" data-axis="sector" onclick="togglePeerChip(this)">Same industry</button>'
+    + '<button type="button" class="peer-chip" data-axis="geo" onclick="togglePeerChip(this)">Same region</button>'
+    + (hasRevenue ? '<button type="button" class="peer-chip" data-axis="revenue" onclick="togglePeerChip(this)">Same revenue band</button>' : '')
+    + '</div>'
+    + '<div id="peer-compare-result" style="margin-top:0.75rem;"></div>'
+    + '</div>';
+}
+
+function togglePeerChip(btn) {
+  btn.classList.toggle('active');
+  refreshPeerCompare();
+}
+
+function refreshPeerCompare() {
+  var resultEl = document.getElementById('peer-compare-result');
+  var active = Array.prototype.slice.call(document.querySelectorAll('.peer-chip.active')).map(function(b){ return b.dataset.axis; });
+  if (active.length === 0) { resultEl.innerHTML = ''; return; }
+
+  var params = new URLSearchParams();
+  if (active.indexOf('sector') !== -1) params.set('sector', baseSector(state.archetype));
+  if (active.indexOf('geo') !== -1) params.set('geo', state.country);
+  if (active.indexOf('revenue') !== -1 && state.revenueBand) params.set('revenue_band', state.revenueBand);
+
+  resultEl.innerHTML = '<p style="font-size:12.5px;color:#9ca3af;">Loading peer data&hellip;</p>';
+  fetch('/api/benchmarks?' + params.toString())
+    .then(function(r){ return r.ok ? r.json() : {}; })
+    .then(function(data){ renderPeerCompareResult(data); })
+    .catch(function(){ resultEl.innerHTML = '<p style="font-size:12.5px;color:#9ca3af;">Couldn\'t load peer data right now.</p>'; });
+}
+
+function renderPeerCompareResult(data) {
+  var resultEl = document.getElementById('peer-compare-result');
+  var scores = state.lastScores;
+  if (!data || Object.keys(data).length === 0) {
+    resultEl.innerHTML = '<p style="font-size:12.5px;color:#9ca3af;">Not enough peer data for this combination yet.</p>';
+    return;
+  }
+  var rows = '';
+  if (data.overall) rows += buildPeerCompareRow('Overall maturity score', scores.overall, data.overall);
+  state.sections.forEach(function(sec) {
+    if (data[sec.id]) rows += buildPeerCompareRow(sec.label, scores[sec.id].pct, data[sec.id]);
+  });
+  resultEl.innerHTML = rows || '<p style="font-size:12.5px;color:#9ca3af;">Not enough peer data for this combination yet.</p>';
+}
+
+function buildPeerCompareRow(label, yourScore, info) {
+  if (yourScore === null || yourScore === undefined) return '';
+  var delta = Math.round(yourScore - info.median_score);
+  var deltaStr = (delta > 0 ? '+' : '') + delta;
+  var deltaColor = delta > 0 ? '#0ca30c' : (delta < 0 ? '#b42318' : '#6b7280');
+  var notes = [];
+  if (info.matched && info.matched.sector_matched === false) notes.push('broader industry');
+  if (info.matched && info.matched.geo_matched === false) notes.push('broader region');
+  if (info.matched && info.matched.revenue_matched === false) notes.push('broader revenue band');
+  var note = notes.length ? ' <span style="color:#9ca3af;">(' + notes.join(', ') + ')</span>' : '';
+  return '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:7px 0;border-bottom:1px solid #f3f4f6;font-size:12.5px;">'
+    + '<span style="color:#374151;">' + label + note + '</span>'
+    + '<span style="white-space:nowrap;">You ' + Math.round(yourScore) + '% &middot; Peer ' + Math.round(info.median_score) + '% '
+    + '<strong style="color:' + deltaColor + ';">(' + deltaStr + ')</strong></span>'
+    + '</div>';
+}
 
 // ─── TOOL / PRACTICE CORRELATION ───────────────────────────────────────────────
 // Correlates the tool assigned to EACH domain (captured at registration) against

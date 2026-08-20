@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS organizations (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     name          TEXT NOT NULL,
     report_token  TEXT NOT NULL UNIQUE,
+    sector        TEXT NOT NULL DEFAULT 'all',
+    geo           TEXT NOT NULL DEFAULT 'all',
+    revenue_band  TEXT NOT NULL DEFAULT 'all',
     created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -80,6 +83,10 @@ def init_db():
     if ENV != 'production':
         conn = _get_conn()
         conn.executescript(_CREATE_SQLITE)
+        existing_cols = {row[1] for row in conn.execute('PRAGMA table_info(organizations)')}
+        for col in ('sector', 'geo', 'revenue_band'):
+            if col not in existing_cols:
+                conn.execute(f"ALTER TABLE organizations ADD COLUMN {col} TEXT NOT NULL DEFAULT 'all'")
         conn.commit()
         conn.close()
 
@@ -116,19 +123,21 @@ def _fetchall_dict(conn, sql, params):
         return [dict(r) for r in rows]
 
 
-def create_organization(name):
+def create_organization(name, sector='all', geo='all', revenue_band='all'):
     token = _new_token()
     conn = _get_conn()
     try:
         ph = _placeholder()
-        sql = f"INSERT INTO organizations (name, report_token) VALUES ({ph}, {ph})"
+        sql = (f"INSERT INTO organizations (name, report_token, sector, geo, revenue_band) "
+               f"VALUES ({ph}, {ph}, {ph}, {ph}, {ph})")
+        params = (name, token, sector, geo, revenue_band)
         if ENV == 'production':
             with conn.cursor() as cur:
-                cur.execute(sql, (name, token))
+                cur.execute(sql, params)
                 org_id = cur.lastrowid
             conn.commit()
         else:
-            cur = conn.execute(sql, (name, token))
+            cur = conn.execute(sql, params)
             org_id = cur.lastrowid
             conn.commit()
         return org_id, token

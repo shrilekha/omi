@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>omi-benchmarks — {% if benchmark_id %}Edit{% else %}Add{% endif %} benchmark</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap" style="max-width:640px;">
+  <div class="page-header">
+    <span class="badge">omi-benchmarks · admin</span>
+    <h1>{% if benchmark_id %}Edit{% else %}Add{% endif %} benchmark</h1>
+    <p class="sub"><a href="{{ url_for('admin_list') }}">&larr; Back to all benchmarks</a></p>
+  </div>
+
+  {% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+
+  <form method="POST" class="card">
+    <div class="grid2">
+      <label>Tool
+        <select name="tool" id="tool-select" required onchange="filterMetrics()">
+          <option value="">Select&hellip;</option>
+          {% for t in tools %}
+          <option value="{{ t }}" {% if existing and existing.tool == t %}selected{% endif %}>{{ tool_labels[t] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Metric
+        <select name="metric" id="metric-select" required>
+          {% for tool_id, metric_list in metrics_by_tool.items() %}
+            {% for mid, label in metric_list %}
+            <option value="{{ mid }}" data-tool="{{ tool_id }}" {% if existing and existing.metric == mid %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="grid3">
+      <label>Sector
+        <select name="sector">
+          {% for sid, label in sectors %}
+          <option value="{{ sid }}" {% if existing and existing.sector == sid %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Geo
+        <select name="geo">
+          {% for gid, label in geos %}
+          <option value="{{ gid }}" {% if existing and existing.geo == gid %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Revenue band
+        <select name="revenue_band">
+          {% for rid, label in revenue_bands %}
+          <option value="{{ rid }}" {% if existing and existing.revenue_band == rid %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="grid2">
+      <label>Median score (0–100)
+        <input type="number" name="median_score" min="0" max="100" step="0.1" required
+               value="{{ existing.median_score if existing else '' }}">
+      </label>
+      <label>Sample size <span style="font-weight:400; color:#9ca3af;">(optional)</span>
+        <input type="number" name="sample_size" min="0" step="1"
+               value="{{ existing.sample_size if existing and existing.sample_size else '' }}">
+      </label>
+    </div>
+
+    <label>Source / notes <span style="font-weight:400; color:#9ca3af;">(optional)</span>
+      <input type="text" name="source" placeholder="e.g. Q2 2026 customer success survey, n=14"
+             value="{{ existing.source if existing and existing.source else '' }}">
+    </label>
+
+    <div class="grid2">
+      <label>Effective date <span style="font-weight:400; color:#9ca3af;">(optional)</span>
+        <input type="date" name="effective_date" value="{{ existing.effective_date if existing and existing.effective_date else '' }}">
+      </label>
+      <label>Entered by <span style="font-weight:400; color:#9ca3af;">(optional)</span>
+        <input type="text" name="created_by" placeholder="your name"
+               value="{{ existing.created_by if existing and existing.created_by else '' }}">
+      </label>
+    </div>
+
+    <button type="submit" class="submit">{% if benchmark_id %}Save changes{% else %}Add benchmark{% endif %}</button>
+  </form>
+</div>
+
+<script>
+function filterMetrics() {
+  var tool = document.getElementById('tool-select').value;
+  var metricSelect = document.getElementById('metric-select');
+  Array.from(metricSelect.options).forEach(function(opt) {
+    opt.hidden = tool && opt.dataset.tool !== tool;
+  });
+  // If the currently-selected metric doesn't belong to the newly-chosen tool,
+  // clear it rather than silently submitting a mismatched pair.
+  var current = metricSelect.options[metricSelect.selectedIndex];
+  if (tool && current && current.dataset.tool !== tool) {
+    var firstMatch = Array.from(metricSelect.options).find(function(o){ return o.dataset.tool === tool; });
+    if (firstMatch) metricSelect.value = firstMatch.value;
+  }
+}
+filterMetrics();
+</script>
+</body>
+</html>

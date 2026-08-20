@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     role             VARCHAR(100),
     sector           VARCHAR(100),
     country          VARCHAR(100),
+    revenue_band     VARCHAR(20),
     sector_archetype VARCHAR(50),
     question_variant VARCHAR(50),
     domain_tools     JSON,

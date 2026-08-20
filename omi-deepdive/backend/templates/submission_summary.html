@@ -19,6 +19,9 @@
   <section class="card center">
     <div class="score-circle sc-{{ overall_band }}">{{ result.overall_score }}</div>
     <p class="band sc-{{ overall_band }}">{{ result.maturity_band }}</p>
+    {% if benchmarks.overall %}
+    <p class="sub" style="margin-top:-4px;">Peer median: {{ benchmarks.overall.median_score|round(0,'floor')|int }}%{% if benchmarks.overall.sector != 'all' or benchmarks.overall.geo != 'all' %} ({{ [org_sector_label, org_geo_label]|select|join(', ') }}){% endif %}</p>
+    {% endif %}
     <p class="sub">
       {% if just_submitted %}
         Recorded for {{ app_row.name }} and included in {{ app_row.org_name }}'s consolidated report.
@@ -56,10 +59,14 @@
   {% set is_na = dim.id in result.na_dims %}
   {% set dscore = result.dimension_scores.get(dim.id) %}
   {% set band = 'na' if (is_na or dscore is none) else ('low' if dscore < 45 else 'mid' if dscore < 65 else 'good' if dscore < 82 else 'great') %}
+  {% set bench = benchmarks.get(dim.id) %}
   <section class="card dimension dim-{{ band }}">
     <h2>
       {{ dim.name }}
       <span class="dim-badge dim-badge-{{ band }}">{% if is_na %}N/A{% elif dscore is none %}Not answered{% else %}{{ dscore|round(0, 'floor')|int }}%{% endif %}</span>
+      {% if bench and not is_na and dscore is not none %}
+      <span class="sub" style="font-size:12px; font-weight:400;">Peer median {{ bench.median_score|round(0,'floor')|int }}%</span>
+      {% endif %}
     </h2>
     <div class="tool-line">Current tool/vendor: <strong>{{ result.tools.get(dim.id) or 'None reported' }}</strong></div>
 

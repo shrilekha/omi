@@ -25,6 +25,7 @@
         <tr>
           <th>Capability</th>
           {% for r in rows %}<th>{{ r.app.name }}</th>{% endfor %}
+          {% if benchmarks %}<th>Peer median</th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -47,6 +48,9 @@
               {%- else %}{{ score|round(0, 'floor')|int }}%{%- endif -%}
             </td>
           {% endfor %}
+          {% if benchmarks %}
+          <td class="cell-na">{% if benchmarks.get(dim.id) %}{{ benchmarks[dim.id].median_score|round(0,'floor')|int }}%{% else %}—{% endif %}</td>
+          {% endif %}
         </tr>
         {% endfor %}
         <tr class="overall-row">
@@ -56,10 +60,16 @@
             {% if r.submission %}{{ r.submission.overall_score }} · {{ r.submission.maturity_band }}{% else %}Not yet submitted{% endif %}
           </td>
           {% endfor %}
+          {% if benchmarks %}
+          <td class="overall-cell">{% if benchmarks.get('overall') %}{{ benchmarks['overall'].median_score|round(0,'floor')|int }}%{% else %}—{% endif %}</td>
+          {% endif %}
         </tr>
       </tbody>
     </table>
     </div>
+    {% if benchmarks and (org_sector_label or org_geo_label) %}
+    <p class="sub" style="margin-top:8px;">Peer median for {{ [org_sector_label, org_geo_label]|select|join(', ') }}.</p>
+    {% endif %}
   </section>
 
   {% for r in rows %}
@@ -71,7 +81,7 @@
       <p class="sub">Submitted by {{ r.submission.respondent_name }} ({{ r.submission.respondent_role }}) — {{ r.submission.submitted_at }}</p>
 
       <table class="detail-table">
-        <thead><tr><th>Dimension</th><th>Score</th><th>Current tool/vendor</th></tr></thead>
+        <thead><tr><th>Dimension</th><th>Score</th>{% if benchmarks %}<th>Peer median</th>{% endif %}<th>Current tool/vendor</th></tr></thead>
         <tbody>
         {% for dim in dimensions %}
           {% set score = r.submission.dimension_scores.get(dim.id) %}
@@ -79,6 +89,7 @@
           <tr>
             <td>{{ dim.name }}</td>
             <td><span class="dim-badge dim-badge-{{ band }}">{% if score is none %}N/A{% else %}{{ score|round(0,'floor')|int }}%{% endif %}</span></td>
+            {% if benchmarks %}<td>{% if benchmarks.get(dim.id) %}{{ benchmarks[dim.id].median_score|round(0,'floor')|int }}%{% else %}—{% endif %}</td>{% endif %}
             <td>{{ r.submission.tools.get(dim.id) or '—' }}</td>
           </tr>
         {% endfor %}

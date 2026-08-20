@@ -7,6 +7,7 @@ import urllib.request
 import uuid
 from datetime import datetime
 from functools import wraps
+import requests
 from flask import Flask, render_template, request, redirect, url_for, abort, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
@@ -22,10 +23,44 @@ from db import (
 )
 from scoring import compute_scores
 from questions import DIMENSIONS, OWNERSHIP_QUESTIONS
+from constants import SECTORS, GEOS, REVENUE_BANDS
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-change-in-prod')
 ADMIN_KEY = os.getenv('ADMIN_KEY', 'changeme-admin-password')
+
+# omi-benchmarks is a separate service (see ../omi-benchmarks). This backend
+# proxies to it server-side — the organization's sector/geo/revenue is fixed
+# at org-creation time, so unlike OMI there's no picker; reports just show
+# whatever peer comparison that org's stored traits resolve to.
+BENCHMARKS_URL = os.getenv('BENCHMARKS_URL', '').rstrip('/')
+BENCHMARKS_API_KEY = os.getenv('BENCHMARKS_API_KEY', '')
+
+
+def _label(options, value):
+    return dict(options).get(value) if value and value != 'all' else None
+
+
+def get_org_benchmarks(org):
+    """All deepdive metrics for one org's stored sector/geo/revenue, or {} if
+    the benchmarks service isn't configured, unreachable, or has nothing for
+    this org yet — reports must render fine either way."""
+    if not BENCHMARKS_URL:
+        return {}
+    params = {'tool': 'deepdive'}
+    for key in ('sector', 'geo', 'revenue_band'):
+        value = org.get(key)
+        if value and value != 'all':
+            params[key] = value
+    try:
+        resp = requests.get(
+            f'{BENCHMARKS_URL}/api/benchmarks', params=params,
+            headers={'X-Api-Key': BENCHMARKS_API_KEY}, timeout=5,
+        )
+        return resp.json() if resp.ok else {}
+    except (requests.RequestException, ValueError) as e:
+        app.logger.warning(f'benchmarks lookup failed: {e}')
+        return {}
 
 # Admin login via Google OAuth — off by default. Set both GOOGLE_OAUTH_CLIENT_ID
 # and GOOGLE_OAUTH_CLIENT_SECRET (see .env.example) to switch admin login from
@@ -222,22 +257,26 @@ ORGS_PER_PAGE = 10
 @app.route('/admin/new', methods=['GET', 'POST'])
 @require_role(*MANAGE_ROLES)
 def admin_new():
+    ctx = {'sectors': SECTORS, 'geos': GEOS, 'revenue_bands': REVENUE_BANDS}
     if request.method == 'POST':
         org_name = request.form.get('org_name', '').strip()
         if not org_name:
-            return render_template('admin_new.html', error='Organization name is required.')
+            return render_template('admin_new.html', error='Organization name is required.', **ctx)
 
         app_names = [v.strip() for k, v in request.form.items() if k.startswith('app_name_') and v.strip()]
         if not app_names:
-            return render_template('admin_new.html', error='At least one app name is required.')
+            return render_template('admin_new.html', error='At least one app name is required.', **ctx)
 
-        org_id, _ = create_organization(org_name)
+        sector = request.form.get('sector', 'all')
+        geo = request.form.get('geo', 'all')
+        revenue_band = request.form.get('revenue_band', 'all')
+        org_id, _ = create_organization(org_name, sector=sector, geo=geo, revenue_band=revenue_band)
         for name in app_names:
             create_app(org_id, name)
 
         return redirect(url_for('admin_org', org_id=org_id))
 
-    return render_template('admin_new.html', error=None)
+    return render_template('admin_new.html', error=None, **ctx)
 
 
 @app.route('/admin/orgs')
@@ -331,9 +370,11 @@ def assess(token):
         result['biggest_blocker'] = request.form.get('biggest_blocker', '')
         save_submission(app_row['id'], result)
         pdf_filename = _pdf_filename(app_row['name'], app_row['org_name'])
+        org = get_organization(app_row['org_id'])
         return render_template(
             'submission_summary.html', app_row=app_row, result=result, just_submitted=True,
-            dimensions=DIMENSIONS, pdf_filename=pdf_filename,
+            dimensions=DIMENSIONS, pdf_filename=pdf_filename, benchmarks=get_org_benchmarks(org),
+            org_sector_label=_label(SECTORS, org['sector']), org_geo_label=_label(GEOS, org['geo']),
         )
 
     existing = get_latest_submission(app_row['id'])
@@ -352,9 +393,11 @@ def print_submission(token):
     if not existing:
         abort(404)
     pdf_filename = _pdf_filename(app_row['name'], app_row['org_name'])
+    org = get_organization(app_row['org_id'])
     return render_template(
         'submission_summary.html', app_row=app_row, result=existing, just_submitted=False,
-        dimensions=DIMENSIONS, pdf_filename=pdf_filename,
+        dimensions=DIMENSIONS, pdf_filename=pdf_filename, benchmarks=get_org_benchmarks(org),
+        org_sector_label=_label(SECTORS, org['sector']), org_geo_label=_label(GEOS, org['geo']),
     )
 
 
@@ -372,7 +415,9 @@ def report(report_token):
 
     pdf_filename = _pdf_filename(org['name'], 'ConsolidatedReport')
     return render_template(
-        'report.html', org=org, rows=rows, dimensions=DIMENSIONS, pdf_filename=pdf_filename
+        'report.html', org=org, rows=rows, dimensions=DIMENSIONS, pdf_filename=pdf_filename,
+        benchmarks=get_org_benchmarks(org),
+        org_sector_label=_label(SECTORS, org['sector']), org_geo_label=_label(GEOS, org['geo']),
     )
 
 
