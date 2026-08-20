@@ -27,46 +27,44 @@ input, select {
   font-family: inherit; font-size: 13px; color: #0f1923; background: #fff; margin-bottom: 0.85rem;
 }
 input:focus, select:focus { outline: none; border-color: #C60675; }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
-.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 1rem; }
-.grid5 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 0 0.85rem; }
 .submit {
   background: #C60675; color: #fff; border: none; border-radius: 8px; padding: 10px 22px;
   font-size: 13px; font-weight: 600; cursor: pointer; width: 100%;
 }
 .submit:hover { background: #9c0560; }
-.btn-secondary {
-  display: inline-block; background: #fff; color: #374151; border: 1.5px solid #e5e7eb; border-radius: 8px;
-  padding: 8px 16px; font-size: 12.5px; font-weight: 600; text-decoration: none; cursor: pointer;
-}
 .error-box { background: #fef2f2; border: 1px solid #fda29b; color: #b42318; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 1rem; }
-.filters { display: flex; gap: 10px; align-items: center; margin-bottom: 1rem; }
-.filters select { margin-bottom: 0; width: auto; min-width: 160px; }
+.filters-form { margin-bottom: 1rem; }
+.filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.filters select { margin-bottom: 0; width: auto; min-width: 150px; }
+.filter-sep { width: 1px; height: 22px; background: #e5e7eb; margin: 0 2px; }
 table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f0f0f0; }
-th { color: #6b7280; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
-.row-actions a { color: #C60675; text-decoration: none; font-weight: 600; margin-right: 14px; font-size: 12px; cursor: pointer; }
-.row-actions button { background: none; border: none; color: #b42318; font-weight: 600; font-size: 12px; cursor: pointer; padding: 0; }
-.top-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+th { color: #6b7280; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
 .empty { color: #9ca3af; font-size: 13px; padding: 2rem 0; text-align: center; }
 
-/* ── inline row editor ───────────────────────────────────────────────────── */
-.edit-row td { padding: 1.1rem 1rem 1.25rem; background: #fafafa; border-bottom: 1px solid #e5e7eb; }
-.inline-form .error-box { margin-bottom: 0.85rem; }
-.inline-form label { font-size: 11.5px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.02em; }
-.inline-form-actions { display: flex; gap: 8px; align-items: center; margin-top: 0.25rem; }
-.inline-form-actions .submit { width: auto; padding: 9px 20px; }
-.add-toggle {
-  width: 100%; background: #fff; border: 1.5px dashed #e5c3d9; color: #9c0560;
-  border-radius: 8px; padding: 10px; font-size: 13px; font-weight: 600; cursor: pointer;
-  font-family: inherit; transition: all 0.15s;
+/* ── benchmark grid (pre-populated, edit-in-place cells) ─────────────────── */
+.grid-row td { vertical-align: middle; }
+.grid-row td:nth-child(1), .grid-row td:nth-child(2), .grid-row td:nth-child(3) {
+  color: #6b7280; font-size: 12px; white-space: nowrap;
 }
-.add-toggle:hover { background: #fdf0f7; border-color: #C60675; }
-tr.view-row.add-row td { border-bottom: none; padding: 6px 10px 10px; }
-
-@media (max-width: 900px) {
-  .grid5 { grid-template-columns: 1fr 1fr; }
+input.cell {
+  width: auto; min-width: 56px; margin-bottom: 0; padding: 5px 7px; font-size: 12.5px;
+  border-color: #e9eaed;
 }
+input.cell-source, input.cell-created-by { min-width: 100px; }
+input.cell-date { min-width: 118px; }
+input.cell-median { width: 72px; font-weight: 600; }
+input.cell-sample { width: 64px; }
+.cell-status-wrap { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.cell-status { display: inline-block; width: 14px; text-align: center; font-size: 13px; font-weight: 700; }
+.cell-status.saving { color: #9ca3af; }
+.cell-status.saved { color: #0ca30c; }
+.cell-status.error { color: #b42318; cursor: help; }
+.clear-btn {
+  background: none; border: none; color: #9ca3af; font-size: 15px; line-height: 1; cursor: pointer;
+  padding: 0 2px;
+}
+.clear-btn:hover { color: #b42318; }
 
 /* ── login page ──────────────────────────────────────────────────────────── */
 .login-page {

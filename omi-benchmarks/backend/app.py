@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 from db import (
-    init_db, list_benchmarks, get_benchmark, upsert_benchmark, delete_benchmark,
+    init_db, list_benchmarks, upsert_benchmark, delete_benchmark,
     find_benchmark, find_benchmarks_for_tool,
 )
 from constants import TOOLS, TOOL_LABELS, SECTORS, GEOS, REVENUE_BANDS, METRICS
@@ -66,99 +66,118 @@ def admin_logout():
     return redirect(url_for('admin_login'))
 
 
-def _decorate(row):
-    """Add the display labels _row_pair.html needs, without mutating the DB row dict in place."""
-    row = dict(row)
-    row['metric_label'] = dict(METRICS.get(row['tool'], [])).get(row['metric'], row['metric'])
-    row['sector_label'] = dict(SECTORS).get(row['sector'], row['sector'])
-    row['geo_label'] = dict(GEOS).get(row['geo'], row['geo'])
-    row['revenue_label'] = dict(REVENUE_BANDS).get(row['revenue_band'], row['revenue_band'])
-    return row
-
-
-_BLANK_ROW = {
-    'id': 'new', 'tool': '', 'metric': '', 'sector': 'all', 'geo': 'all', 'revenue_band': 'all',
-    'median_score': None, 'sample_size': None, 'source': None, 'effective_date': None, 'created_by': None,
-}
-
-_ROW_TEMPLATE_CTX = dict(tools=TOOLS, tool_labels=TOOL_LABELS, sectors=SECTORS, geos=GEOS,
-                          revenue_bands=REVENUE_BANDS, metrics_by_tool=METRICS)
-
-
 @app.route('/admin/benchmarks')
 @require_admin
 def admin_list():
-    tool = request.args.get('tool') or None
-    sector = request.args.get('sector') or None
-    rows = [_decorate(r) for r in list_benchmarks(tool=tool, sector=sector)]
+    """The whole sector x geo x revenue-band grid for one tool+metric at a
+    time, pre-populated with every existing value and a blank editable row
+    for every combination that doesn't have one yet — filling in a cell is
+    just typing a number and tabbing out (see submitCell() in admin_list.html),
+    never an "add row" step. Sector/geo/revenue filters narrow which of those
+    combinations are shown; leaving one on its default ('') shows every value
+    of that axis, including the 'all sectors'-style rollup entries, since
+    those are themselves one of the values in each axis's own list."""
+    tool = request.args.get('tool') or TOOLS[0]
+    if tool not in TOOLS:
+        tool = TOOLS[0]
+    metric_options = METRICS[tool]
+    metric = request.args.get('metric') or metric_options[0][0]
+    if metric not in dict(metric_options):
+        metric = metric_options[0][0]
+
+    sector_filter = request.args.get('sector', '')
+    geo_filter = request.args.get('geo', '')
+    revenue_filter = request.args.get('revenue_band', '')
+
+    sector_values = [sector_filter] if sector_filter else [s[0] for s in SECTORS]
+    geo_values = [geo_filter] if geo_filter else [g[0] for g in GEOS]
+    revenue_values = [revenue_filter] if revenue_filter else [r[0] for r in REVENUE_BANDS]
+
+    existing = {
+        (r['sector'], r['geo'], r['revenue_band']): r
+        for r in list_benchmarks(tool=tool, metric=metric)
+    }
+
+    grid_rows = []
+    for sector in sector_values:
+        for geo in geo_values:
+            for revenue_band in revenue_values:
+                r = existing.get((sector, geo, revenue_band))
+                grid_rows.append({
+                    'id': r['id'] if r else '',
+                    'sector': sector, 'sector_label': dict(SECTORS).get(sector, sector),
+                    'geo': geo, 'geo_label': dict(GEOS).get(geo, geo),
+                    'revenue_band': revenue_band, 'revenue_label': dict(REVENUE_BANDS).get(revenue_band, revenue_band),
+                    'median_score': r['median_score'] if r else '',
+                    'sample_size': (r['sample_size'] if r and r['sample_size'] is not None else ''),
+                    'source': r['source'] if r else '',
+                    'effective_date': r['effective_date'] if r else '',
+                    'created_by': r['created_by'] if r else '',
+                })
+
     return render_template(
-        'admin_list.html', rows=rows, blank_row=_BLANK_ROW, error=None, edit_only=False,
-        selected_tool=tool, selected_sector=sector, **_ROW_TEMPLATE_CTX,
+        'admin_list.html', tool=tool, metric=metric, grid_rows=grid_rows,
+        tools=TOOLS, tool_labels=TOOL_LABELS, metric_options=metric_options,
+        sectors=SECTORS, geos=GEOS, revenue_bands=REVENUE_BANDS,
+        sector_filter=sector_filter, geo_filter=geo_filter, revenue_filter=revenue_filter,
     )
 
 
 @app.route('/admin/benchmarks/save', methods=['POST'])
 @require_admin
 def admin_save():
-    """Inline-editor endpoint (see admin_list.html / _row_pair.html) — adds or
-    updates one row and returns the rendered row-pair HTML fragment to swap
-    into the table via fetch(), so the page never fully reloads. On a
-    validation error, returns just the editor with the error and the
-    submitted values preserved, instead of the saved row."""
+    """One grid cell's worth of data (see submitCell() in admin_list.html) —
+    tool/metric/sector/geo/revenue_band identify WHICH cell; the rest is what
+    got typed into it. A blank median is a no-op (nothing to save yet), not
+    an error, since most cells in the grid start out blank on purpose."""
     raw_id = request.form.get('id', '').strip()
     benchmark_id = int(raw_id) if raw_id.isdigit() else None
+
+    median_raw = request.form.get('median_score', '').strip()
+    if not median_raw:
+        return jsonify({'ok': True, 'id': benchmark_id, 'skipped': True})
 
     tool = request.form.get('tool', '')
     metric = request.form.get('metric', '')
     valid_metrics = dict(METRICS.get(tool, []))
     try:
-        median_score = float(request.form.get('median_score', ''))
+        median_score = float(median_raw)
     except ValueError:
         median_score = None
 
-    error = None
     if tool not in TOOLS:
-        error = 'Choose a valid tool.'
-    elif metric not in valid_metrics:
-        error = 'Choose a metric that belongs to the selected tool.'
-    elif median_score is None or not (0 <= median_score <= 100):
-        error = 'Median score must be a number between 0 and 100.'
+        return jsonify({'ok': False, 'error': 'Invalid tool.'}), 422
+    if metric not in valid_metrics:
+        return jsonify({'ok': False, 'error': 'Invalid metric.'}), 422
+    if median_score is None or not (0 <= median_score <= 100):
+        return jsonify({'ok': False, 'error': 'Median must be a number between 0 and 100.'}), 422
 
-    if not error:
-        sample_size_raw = request.form.get('sample_size', '').strip()
-        data = {
-            'tool': tool,
-            'metric': metric,
-            'sector': request.form.get('sector', 'all'),
-            'geo': request.form.get('geo', 'all'),
-            'revenue_band': request.form.get('revenue_band', 'all'),
-            'median_score': median_score,
-            'sample_size': int(sample_size_raw) if sample_size_raw.isdigit() else None,
-            'source': request.form.get('source', '').strip() or None,
-            'effective_date': request.form.get('effective_date', '').strip() or None,
-            'created_by': request.form.get('created_by', '').strip() or None,
-        }
-        try:
-            row_id = upsert_benchmark(data, benchmark_id=benchmark_id)
-            row = _decorate(get_benchmark(row_id))
-            return render_template('_row_pair.html', row=row, error=None, edit_only=False, **_ROW_TEMPLATE_CTX)
-        except Exception as e:
-            # Most likely the UNIQUE(tool, metric, sector, geo, revenue_band)
-            # constraint — that exact peer-group combination already has a row.
-            error = ('A benchmark for this exact tool/metric/sector/geo/revenue '
-                      'combination already exists — edit that row instead.')
-            app.logger.warning(f'upsert_benchmark failed: {e}')
-
-    row = request.form.to_dict()
-    row['id'] = benchmark_id if benchmark_id else 'new'
-    return render_template('_row_pair.html', row=row, error=error, edit_only=True, **_ROW_TEMPLATE_CTX), 422
+    sample_size_raw = request.form.get('sample_size', '').strip()
+    data = {
+        'tool': tool,
+        'metric': metric,
+        'sector': request.form.get('sector', 'all'),
+        'geo': request.form.get('geo', 'all'),
+        'revenue_band': request.form.get('revenue_band', 'all'),
+        'median_score': median_score,
+        'sample_size': int(sample_size_raw) if sample_size_raw.isdigit() else None,
+        'source': request.form.get('source', '').strip() or None,
+        'effective_date': request.form.get('effective_date', '').strip() or None,
+        'created_by': request.form.get('created_by', '').strip() or None,
+    }
+    try:
+        row_id = upsert_benchmark(data, benchmark_id=benchmark_id)
+    except Exception as e:
+        app.logger.warning(f'upsert_benchmark failed: {e}')
+        return jsonify({'ok': False, 'error': 'Could not save (unexpected database error).'}), 422
+    return jsonify({'ok': True, 'id': row_id})
 
 
 @app.route('/admin/benchmarks/<int:benchmark_id>/delete', methods=['POST'])
 @require_admin
 def admin_delete(benchmark_id):
     delete_benchmark(benchmark_id)
-    return ('', 204)
+    return jsonify({'ok': True})
 
 
 # ─── Read API — server-to-server only, never called from a browser ────────────

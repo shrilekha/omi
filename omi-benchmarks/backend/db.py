@@ -106,7 +106,7 @@ def _execute(sql, params):
 
 # ─── CRUD for the admin UI ─────────────────────────────────────────────────────
 
-def list_benchmarks(tool=None, sector=None):
+def list_benchmarks(tool=None, metric=None, sector=None):
     conn = _get_conn()
     try:
         sql = "SELECT * FROM benchmarks WHERE 1=1"
@@ -114,6 +114,9 @@ def list_benchmarks(tool=None, sector=None):
         if tool:
             sql += " AND tool = ?"
             params.append(tool)
+        if metric:
+            sql += " AND metric = ?"
+            params.append(metric)
         if sector:
             sql += " AND sector = ?"
             params.append(sector)

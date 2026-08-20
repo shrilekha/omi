@@ -15,122 +15,156 @@
       <span class="badge">omi-benchmarks &middot; admin</span>
       <h1>Industry benchmarks</h1>
       <p class="sub">
-        Rows here power the peer comparison in OMI's report and omi-deepdive's per-app and
-        consolidated reports. Enter at any granularity — a specific sector/geo/revenue
-        combination, or a coarser rollup using "All &#8288;___&#8288;".
+        Every sector &times; geo &times; revenue-band combination for the tool/metric below is
+        already listed &mdash; just type a median into the rows you have data for and tab out;
+        it saves itself. Leave the rest blank. Filters narrow the list; they don't gate entry.
       </p>
     </div>
     <a href="{{ url_for('admin_logout') }}" class="logout-link">Log out</a>
   </div>
 
-  <div class="top-actions">
+  <form method="GET" class="filters-form">
     <div class="filters">
-      <select onchange="location.href='{{ url_for('admin_list') }}?tool='+this.value+'&sector={{ selected_sector or '' }}'">
-        <option value="">All tools</option>
+      <select name="tool" onchange="this.form.metric.value=''; this.form.submit()">
         {% for t in tools %}
-        <option value="{{ t }}" {% if selected_tool == t %}selected{% endif %}>{{ tool_labels[t] }}</option>
+        <option value="{{ t }}" {% if tool == t %}selected{% endif %}>{{ tool_labels[t] }}</option>
         {% endfor %}
       </select>
-      <select onchange="location.href='{{ url_for('admin_list') }}?tool={{ selected_tool or '' }}&sector='+this.value">
+      <select name="metric" onchange="this.form.submit()">
+        {% for mid, label in metric_options %}
+        <option value="{{ mid }}" {% if metric == mid %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <span class="filter-sep"></span>
+      <select name="sector" onchange="this.form.submit()">
+        <option value="">Any sector</option>
         {% for sid, label in sectors %}
-        <option value="{{ sid }}" {% if selected_sector == sid %}selected{% endif %}>{{ label }}</option>
+        <option value="{{ sid }}" {% if sector_filter == sid %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <select name="geo" onchange="this.form.submit()">
+        <option value="">Any geo</option>
+        {% for gid, label in geos %}
+        <option value="{{ gid }}" {% if geo_filter == gid %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <select name="revenue_band" onchange="this.form.submit()">
+        <option value="">Any revenue band</option>
+        {% for vid, label in revenue_bands %}
+        <option value="{{ vid }}" {% if revenue_filter == vid %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
     </div>
-  </div>
+  </form>
 
   <div class="card" style="padding:0; overflow-x:auto;">
     <table>
       <thead>
         <tr>
-          <th>Tool</th><th>Metric</th><th>Sector</th><th>Geo</th><th>Revenue band</th>
-          <th>Median</th><th>Sample</th><th>Effective</th><th></th>
+          <th>Sector</th><th>Geo</th><th>Revenue band</th>
+          <th>Median (0&ndash;100)</th><th>Sample</th><th>Source / notes</th>
+          <th>Effective date</th><th>Entered by</th><th></th>
         </tr>
       </thead>
-      <tbody id="benchmarks-body">
-        {% set row = blank_row %}
-        {% include '_row_pair.html' with context %}
-        {% for r in rows %}
-          {% set row = r %}
-          {% include '_row_pair.html' with context %}
+      <tbody>
+        {% for row in grid_rows %}
+        <tr class="grid-row" data-id="{{ row.id }}" data-tool="{{ tool }}" data-metric="{{ metric }}"
+            data-sector="{{ row.sector }}" data-geo="{{ row.geo }}" data-revenue="{{ row.revenue_band }}">
+          <td>{{ row.sector_label }}</td>
+          <td>{{ row.geo_label }}</td>
+          <td>{{ row.revenue_label }}</td>
+          <td><input type="number" class="cell cell-median" min="0" max="100" step="0.1" value="{{ row.median_score }}" onblur="submitCell(this)"></td>
+          <td><input type="number" class="cell cell-sample" min="0" step="1" value="{{ row.sample_size }}" onblur="submitCell(this)"></td>
+          <td><input type="text" class="cell cell-source" value="{{ row.source }}" onblur="submitCell(this)"></td>
+          <td><input type="date" class="cell cell-date" value="{{ row.effective_date }}" onblur="submitCell(this)"></td>
+          <td><input type="text" class="cell cell-created-by" value="{{ row.created_by }}" onblur="submitCell(this)"></td>
+          <td class="cell-status-wrap">
+            <span class="cell-status"></span>
+            {% if row.id %}<button type="button" class="clear-btn" title="Clear this cell" onclick="clearCell(this)">&times;</button>{% endif %}
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
-    {% if not rows %}
-    <p class="empty">No benchmark rows yet{% if selected_tool or selected_sector %} for this filter{% endif %}. Use "+ Add benchmark" above to add the first one.</p>
-    {% endif %}
   </div>
+  <p class="sub" style="margin-top:10px;">{{ grid_rows|length }} row{{ 's' if grid_rows|length != 1 }} shown for {{ tool_labels[tool] }} &middot; narrow with the filters above if this is too many to scan at once.</p>
 </div>
 
 <script>
-function toggleEdit(id) {
-  var editRow = document.getElementById('edit-' + id);
-  var isHidden = editRow.style.display === 'none';
-  editRow.style.display = isHidden ? '' : 'none';
-  if (isHidden) {
-    var firstField = editRow.querySelector('select, input');
-    if (firstField) firstField.focus();
-  }
+var saveTimers = {};
+
+function rowKey(tr) {
+  return [tr.dataset.tool, tr.dataset.metric, tr.dataset.sector, tr.dataset.geo, tr.dataset.revenue].join('|');
 }
 
-function filterMetrics(toolSelect) {
-  var tool = toolSelect.value;
-  var form = toolSelect.closest('form');
-  var metricSelect = form.querySelector('select[name="metric"]');
-  Array.prototype.forEach.call(metricSelect.options, function(opt) {
-    opt.hidden = tool && opt.dataset.tool !== tool;
-  });
-  var current = metricSelect.options[metricSelect.selectedIndex];
-  if (tool && current && current.dataset.tool !== tool) {
-    var firstMatch = Array.prototype.filter.call(metricSelect.options, function(o){ return o.dataset.tool === tool; })[0];
-    if (firstMatch) metricSelect.value = firstMatch.value;
-  }
+function setStatus(tr, state, message) {
+  var el = tr.querySelector('.cell-status');
+  el.className = 'cell-status ' + state;
+  el.textContent = state === 'error' ? '!' : (state === 'saved' ? '✓' : '');
+  el.title = message || '';
 }
-// Apply once per already-rendered form (existing rows may already have a tool
-// selected, so their metric list needs the same narrowing on page load).
-document.querySelectorAll('.inline-form select[name="tool"]').forEach(filterMetrics);
 
-function submitRow(evt) {
-  evt.preventDefault();
-  var form = evt.target;
-  var id = form.querySelector('[name="id"]').value || 'new';
-  fetch('{{ url_for("admin_save") }}', { method: 'POST', body: new FormData(form) })
-    .then(function(r){ return r.text().then(function(html){ return { ok: r.ok, html: html }; }); })
+function submitCell(input) {
+  var tr = input.closest('tr');
+  var median = tr.querySelector('.cell-median').value.trim();
+  if (!median) { setStatus(tr, '', ''); return; }
+
+  // Debounce per row — tabbing through several fields in the same row within
+  // 300ms sends one save with all of them, not one fetch per field.
+  var key = rowKey(tr);
+  if (saveTimers[key]) clearTimeout(saveTimers[key]);
+  saveTimers[key] = setTimeout(function() { saveRow(tr); }, 300);
+}
+
+function saveRow(tr) {
+  setStatus(tr, 'saving', 'Saving…');
+  var fd = new FormData();
+  fd.set('id', tr.dataset.id || '');
+  fd.set('tool', tr.dataset.tool);
+  fd.set('metric', tr.dataset.metric);
+  fd.set('sector', tr.dataset.sector);
+  fd.set('geo', tr.dataset.geo);
+  fd.set('revenue_band', tr.dataset.revenue);
+  fd.set('median_score', tr.querySelector('.cell-median').value.trim());
+  fd.set('sample_size', tr.querySelector('.cell-sample').value.trim());
+  fd.set('source', tr.querySelector('.cell-source').value.trim());
+  fd.set('effective_date', tr.querySelector('.cell-date').value.trim());
+  fd.set('created_by', tr.querySelector('.cell-created-by').value.trim());
+
+  fetch('{{ url_for("admin_save") }}', { method: 'POST', body: fd })
+    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
     .then(function(res) {
-      var holder = document.createElement('tbody');
-      holder.innerHTML = res.html;
-      var newNodes = Array.prototype.slice.call(holder.children);
-
-      if (id === 'new') {
-        if (res.ok) {
-          var addViewRow = document.getElementById('view-new');
-          newNodes.forEach(function(node) { addViewRow.parentNode.insertBefore(node, addViewRow.nextSibling); });
-          form.reset();
-          filterMetrics(form.querySelector('select[name="tool"]'));
-        } else {
-          document.getElementById('edit-new').replaceWith(newNodes[0]);
+      if (res.ok && res.data.ok) {
+        if (res.data.id) {
+          tr.dataset.id = res.data.id;
+          var clearBtn = tr.querySelector('.clear-btn');
+          if (!clearBtn && !res.data.skipped) {
+            var td = tr.querySelector('.cell-status-wrap');
+            var btn = document.createElement('button');
+            btn.type = 'button'; btn.className = 'clear-btn'; btn.title = 'Clear this cell';
+            btn.textContent = '×'; btn.onclick = function() { clearCell(btn); };
+            td.appendChild(btn);
+          }
         }
+        setStatus(tr, res.data.skipped ? '' : 'saved', res.data.skipped ? '' : 'Saved');
       } else {
-        if (res.ok) {
-          document.getElementById('view-' + id).replaceWith(newNodes[0]);
-          document.getElementById('edit-' + id).replaceWith(newNodes[1]);
-        } else {
-          document.getElementById('edit-' + id).replaceWith(newNodes[0]);
-        }
+        setStatus(tr, 'error', res.data.error || 'Could not save.');
       }
     })
-    .catch(function() { alert('Something went wrong saving this row — please try again.'); });
-  return false;
+    .catch(function() { setStatus(tr, 'error', 'Network error — could not save.'); });
 }
 
-function deleteRow(id) {
-  if (!confirm('Delete this benchmark row? This can\'t be undone.')) return;
-  fetch('/admin/benchmarks/' + id + '/delete', { method: 'POST' }).then(function(r) {
+function clearCell(btn) {
+  var tr = btn.closest('tr');
+  if (!confirm('Clear this cell? This deletes the saved benchmark for this row.')) return;
+  fetch('/admin/benchmarks/' + tr.dataset.id + '/delete', { method: 'POST' }).then(function(r) {
     if (r.ok) {
-      document.getElementById('view-' + id).remove();
-      document.getElementById('edit-' + id).remove();
+      tr.dataset.id = '';
+      tr.querySelectorAll('.cell').forEach(function(i) { i.value = ''; });
+      setStatus(tr, '', '');
+      btn.remove();
     } else {
-      alert('Could not delete this row.');
+      alert('Could not clear this cell.');
     }
   });
 }
