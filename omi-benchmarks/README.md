@@ -1,9 +1,9 @@
 # omi-benchmarks
 
 Industry benchmark reference data — leadership/customer success key in peer
-maturity figures here, and both **OMI** and **omi-deepdive** read them
-server-to-server to show "how do we compare to peers like us" alongside a
-respondent's own score.
+maturity figures here, **once, app-agnostically**, and both **OMI** and
+**omi-deepdive** read them server-to-server to show "how do we compare to
+peers like us" alongside a respondent's own score.
 
 This is a **separate application and database** from both OMI and
 omi-deepdive, same as those two are separate from each other. It holds
@@ -21,28 +21,53 @@ down without taking benchmark data with it, and vice versa.
 - omi-deepdive's per-app and consolidated reports show the same kind of
   comparison, but with no picker — the organization's sector/geo/revenue
   (set once, at org creation) fixes which peer group is shown.
-- Both are reading the *same* underlying data, entered once, here.
+- Both are reading the *same* underlying data, entered once, here — whoever
+  keys in a figure doesn't need to know or care which tool's respondents
+  will eventually see it.
 
 ## The data model
 
-One table, `benchmarks`. Each row is one metric's peer figure for one peer
-group:
+One table, `benchmarks`. Each row is one capability area's peer figure for
+one peer group:
 
 | Column | Meaning |
 |---|---|
-| `tool` | `omi` or `deepdive` — the two apps' domain/dimension taxonomies don't line up (OMI has 5 domains, deepdive has 8 dimensions), so a benchmark belongs to exactly one |
-| `metric` | a domain/dimension id for that tool, or `overall` |
+| `metric` | a canonical capability-area id, or `overall` — see `backend/constants.py` `METRICS`. Deliberately **not** tied to either app's own domain/dimension ids; each app maps its own onto these (see "App-agnostic metrics" below) |
 | `sector` | an industry archetype id, or `all` |
 | `geo` | a country/region, or `all` |
 | `revenue_band` | a revenue band id, or `all` |
-| `median_score` | 0–100 |
+| `benchmark_value` | 0–100 — the peer figure itself |
 | `sample_size`, `source`, `effective_date`, `created_by` | optional context |
 
 `all` is a real stored value, not a null — you can enter a row at any
 granularity, from fully specific (BFSI, India, $1B–$10B) to a broad rollup
-(all sectors, all geos, all revenue bands = the global average for that
-metric). **`(tool, metric, sector, geo, revenue_band)` is unique** — there's
+(all sectors, all geos, all revenue bands = the global figure for that
+metric). **`(metric, sector, geo, revenue_band)` is unique** — there's
 exactly one row for any given combination.
+
+### App-agnostic metrics — why there's no "tool" column
+
+OMI has 5 domains; omi-deepdive has 8 dimensions; they don't line up
+one-to-one. Rather than making whoever enters benchmarks pick a tool first
+and duplicate figures across both, this table stores against **one shared
+canonical list** (`METRICS` in `backend/constants.py`), and each consuming
+app translates:
+
+| Canonical metric | OMI domain | omi-deepdive dimension |
+|---|---|---|
+| `overall` | `overall` | `overall` |
+| `txn` | `txn` | `biztxn` |
+| `app_perf` | `app` | `apm` |
+| `infra_network` | `infra` | `infra` **and** `network` (both read the *same* figure — OMI treats them as one domain, deepdive splits it into two) |
+| `log` | `log` | `logs` |
+| `compliance` | `comp` | *(none — omi-deepdive has no compliance dimension)* |
+| `rum` | *(none — OMI has no RUM domain)* | `rum` |
+| `synthetic` | *(none)* | `synthetic` |
+| `correlation` | *(none)* | `correlation` |
+
+The translation dicts (`OMI_METRIC_TO_CANONICAL` in OMI's `backend/app.py`,
+`DEEPDIVE_METRIC_TO_CANONICAL` in omi-deepdive's) live in each *consuming*
+app, not here — this service stays domain-agnostic on purpose.
 
 ### How a lookup resolves — read this before assuming a query "has no data"
 
@@ -73,36 +98,49 @@ python app.py
 Open **http://localhost:5070** (redirects to `/admin`). SQLite DB
 auto-created at `local_dev.db` (project root) on first run.
 
-## Admin UI
+## Admin UI — a pre-populated grid, not an "add row" form
 
 `/admin` is gated by a single shared `ADMIN_KEY` from `.env` — same
 password-only tradeoff OMI and omi-deepdive both started with (no per-user
-identity; anyone with the key has full access). `/admin/benchmarks` lists
-every row with tool/sector filters; **+ Add benchmark** opens a form (tool →
-metric → sector → geo → revenue band → median score, plus optional sample
-size / source / effective date / entered by). The metric dropdown is scoped
-to whichever tool you pick.
+identity; anyone with the key has full access).
+
+`/admin/benchmarks` shows the **entire sector × geo × revenue-band grid**
+for one metric at a time (pick it from the dropdown — up to 360 rows),
+already populated with every existing value; the rest are blank editable
+rows, not something you "add." Type a benchmark value into a cell and tab
+out — it saves itself (debounced so filling in several fields on one row is
+one request, not several). Sector/geo/revenue filters narrow which rows are
+shown; they're a convenience, not a gate. A small **×** on a filled row
+clears it (deletes the record).
+
+A save that's still pending when you navigate away (e.g. straight to Log
+out) is flushed immediately via `beforeunload`/`pagehide`, and the request
+itself uses `fetch(..., {keepalive: true})` so it can finish even mid
+page-unload — without both of those, a value typed right before navigating
+away could be silently lost.
 
 ## Read API — for OMI's and omi-deepdive's backends only
 
 ```
-GET /api/benchmarks?tool=omi&sector=bfsi_regulated&geo=India&revenue_band=1b_10b
+GET /api/benchmarks?sector=bfsi_regulated&geo=India&revenue_band=1b_10b
 ```
 
 Header: `X-Api-Key: <BENCHMARKS_API_KEY>`. Omit `sector`/`geo`/`revenue_band`
 to mean "don't filter on this axis" (equivalent to `all`). Omit `metric` to
-get every metric for that tool in one response — this is what a report
-screen wants, one call covering every domain/dimension at once:
+get every canonical metric in one response — this is what a report screen
+wants, one call covering every domain/dimension at once:
 
 ```json
 {
-  "txn": {"median_score": 61.5, "sample_size": 14, "sector": "bfsi_regulated", "geo": "India", "revenue_band": "1b_10b", "matched": {"sector_matched": true, "geo_matched": true, "revenue_matched": true}},
-  "app": {"median_score": 58.0, "sample_size": 9, "sector": "bfsi_regulated", "geo": "all", "revenue_band": "all", "matched": {"sector_matched": true, "geo_matched": false, "revenue_matched": false}}
+  "txn": {"benchmark_value": 61.5, "sample_size": 14, "sector": "bfsi_regulated", "geo": "India", "revenue_band": "1b_10b", "matched": {"sector_matched": true, "geo_matched": true, "revenue_matched": true}},
+  "app_perf": {"benchmark_value": 58.0, "sample_size": 9, "sector": "bfsi_regulated", "geo": "all", "revenue_band": "all", "matched": {"sector_matched": true, "geo_matched": false, "revenue_matched": false}}
 }
 ```
 
 Pass `metric=txn` for a single metric — returns `{"found": false}` if
-nothing matched even after every fallback.
+nothing matched even after every fallback. The keys in an all-metrics
+response are always the **canonical** ids above — callers translate them
+to their own domain/dimension ids themselves (see "App-agnostic metrics").
 
 This endpoint is **never** called from either app's browser-facing pages —
 each app's own backend calls it server-side and relays only what it needs to
@@ -139,12 +177,13 @@ need network access to it.
 ## Keeping the taxonomy in sync
 
 `backend/constants.py` is the canonical list of sectors, geos, revenue
-bands, and per-tool metrics — but it's **plain data, not shared code**: OMI
-and omi-deepdive each have their own copies of the sector/geo/revenue
-options in their own registration/org-creation forms. If you add a sector,
-geo, revenue band, or (for OMI) a domain here, it does not automatically
-appear anywhere else — update the matching list in whichever app(s) need it,
-by hand, to keep the three in sync. See the comment at the top of
+bands, and metrics — but it's **plain data, not shared code**: OMI and
+omi-deepdive each have their own copies of the sector/geo/revenue options in
+their own registration/org-creation forms, and their own metric→canonical
+translation dicts (see "App-agnostic metrics" above). If you add a sector,
+geo, revenue band, or metric here, it does not automatically appear or get
+used anywhere else — update the matching list/dict in whichever app(s) need
+it, by hand, to keep everything in sync. See the comment at the top of
 `constants.py` for exactly where each app's copy lives.
 
 ## Seeding
@@ -160,13 +199,12 @@ ongoing) data-entry task, not something the plumbing does for you.
 ```
 omi-benchmarks/
 ├── backend/
-│   ├── app.py          # Flask app — admin auth, CRUD, the read API, health
+│   ├── app.py          # Flask app — admin auth, the grid CRUD, the read API, health
 │   ├── db.py            # DB abstraction + find_benchmark() fallback ladder
-│   ├── constants.py      # Canonical tool/metric/sector/geo/revenue-band lists
+│   ├── constants.py      # Canonical metric/sector/geo/revenue-band lists
 │   ├── templates/
 │   │   ├── admin_login.html
-│   │   ├── admin_list.html
-│   │   └── admin_form.html
+│   │   └── admin_list.html   # the grid — this is the only authenticated page
 │   └── static/style.css
 ├── database/
 │   └── schema.sql        # MySQL schema for production

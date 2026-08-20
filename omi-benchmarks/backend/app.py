@@ -9,9 +9,9 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 from db import (
     init_db, list_benchmarks, upsert_benchmark, delete_benchmark,
-    find_benchmark, find_benchmarks_for_tool,
+    find_benchmark, find_all_benchmarks,
 )
-from constants import TOOLS, TOOL_LABELS, SECTORS, GEOS, REVENUE_BANDS, METRICS
+from constants import SECTORS, SECTOR_SHORT_LABELS, GEOS, REVENUE_BANDS, METRICS
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-change-in-prod')
@@ -69,21 +69,20 @@ def admin_logout():
 @app.route('/admin/benchmarks')
 @require_admin
 def admin_list():
-    """The whole sector x geo x revenue-band grid for one tool+metric at a
-    time, pre-populated with every existing value and a blank editable row
-    for every combination that doesn't have one yet — filling in a cell is
-    just typing a number and tabbing out (see submitCell() in admin_list.html),
-    never an "add row" step. Sector/geo/revenue filters narrow which of those
-    combinations are shown; leaving one on its default ('') shows every value
-    of that axis, including the 'all sectors'-style rollup entries, since
-    those are themselves one of the values in each axis's own list."""
-    tool = request.args.get('tool') or TOOLS[0]
-    if tool not in TOOLS:
-        tool = TOOLS[0]
-    metric_options = METRICS[tool]
-    metric = request.args.get('metric') or metric_options[0][0]
-    if metric not in dict(metric_options):
-        metric = metric_options[0][0]
+    """The whole sector x geo x revenue-band grid for one capability-area
+    metric at a time, pre-populated with every existing value and a blank
+    editable row for every combination that doesn't have one yet — filling
+    in a cell is just typing a number and tabbing out (see submitCell() in
+    admin_list.html), never an "add row" step. Entry is app-agnostic: there
+    is no tool selector — a metric here is a canonical capability area read
+    by both OMI and omi-deepdive (see constants.py METRICS). Sector/geo/
+    revenue filters narrow which combinations are shown; leaving one on its
+    default ('') shows every value of that axis, including the 'all
+    sectors'-style rollup entries, since those are themselves one of the
+    values in each axis's own list."""
+    metric = request.args.get('metric') or METRICS[0][0]
+    if metric not in dict(METRICS):
+        metric = METRICS[0][0]
 
     sector_filter = request.args.get('sector', '')
     geo_filter = request.args.get('geo', '')
@@ -95,7 +94,7 @@ def admin_list():
 
     existing = {
         (r['sector'], r['geo'], r['revenue_band']): r
-        for r in list_benchmarks(tool=tool, metric=metric)
+        for r in list_benchmarks(metric=metric)
     }
 
     grid_rows = []
@@ -105,10 +104,10 @@ def admin_list():
                 r = existing.get((sector, geo, revenue_band))
                 grid_rows.append({
                     'id': r['id'] if r else '',
-                    'sector': sector, 'sector_label': dict(SECTORS).get(sector, sector),
+                    'sector': sector, 'sector_label': SECTOR_SHORT_LABELS.get(sector, sector),
                     'geo': geo, 'geo_label': dict(GEOS).get(geo, geo),
                     'revenue_band': revenue_band, 'revenue_label': dict(REVENUE_BANDS).get(revenue_band, revenue_band),
-                    'median_score': r['median_score'] if r else '',
+                    'benchmark_value': r['benchmark_value'] if r else '',
                     'sample_size': (r['sample_size'] if r and r['sample_size'] is not None else ''),
                     'source': r['source'] if r else '',
                     'effective_date': r['effective_date'] if r else '',
@@ -116,8 +115,7 @@ def admin_list():
                 })
 
     return render_template(
-        'admin_list.html', tool=tool, metric=metric, grid_rows=grid_rows,
-        tools=TOOLS, tool_labels=TOOL_LABELS, metric_options=metric_options,
+        'admin_list.html', metric=metric, grid_rows=grid_rows, metric_options=METRICS,
         sectors=SECTORS, geos=GEOS, revenue_bands=REVENUE_BANDS,
         sector_filter=sector_filter, geo_filter=geo_filter, revenue_filter=revenue_filter,
     )
@@ -127,39 +125,34 @@ def admin_list():
 @require_admin
 def admin_save():
     """One grid cell's worth of data (see submitCell() in admin_list.html) —
-    tool/metric/sector/geo/revenue_band identify WHICH cell; the rest is what
-    got typed into it. A blank median is a no-op (nothing to save yet), not
-    an error, since most cells in the grid start out blank on purpose."""
+    metric/sector/geo/revenue_band identify WHICH cell; the rest is what got
+    typed into it. A blank benchmark value is a no-op (nothing to save yet),
+    not an error, since most cells in the grid start out blank on purpose."""
     raw_id = request.form.get('id', '').strip()
     benchmark_id = int(raw_id) if raw_id.isdigit() else None
 
-    median_raw = request.form.get('median_score', '').strip()
-    if not median_raw:
+    value_raw = request.form.get('benchmark_value', '').strip()
+    if not value_raw:
         return jsonify({'ok': True, 'id': benchmark_id, 'skipped': True})
 
-    tool = request.form.get('tool', '')
     metric = request.form.get('metric', '')
-    valid_metrics = dict(METRICS.get(tool, []))
     try:
-        median_score = float(median_raw)
+        benchmark_value = float(value_raw)
     except ValueError:
-        median_score = None
+        benchmark_value = None
 
-    if tool not in TOOLS:
-        return jsonify({'ok': False, 'error': 'Invalid tool.'}), 422
-    if metric not in valid_metrics:
+    if metric not in dict(METRICS):
         return jsonify({'ok': False, 'error': 'Invalid metric.'}), 422
-    if median_score is None or not (0 <= median_score <= 100):
-        return jsonify({'ok': False, 'error': 'Median must be a number between 0 and 100.'}), 422
+    if benchmark_value is None or not (0 <= benchmark_value <= 100):
+        return jsonify({'ok': False, 'error': 'Benchmark value must be a number between 0 and 100.'}), 422
 
     sample_size_raw = request.form.get('sample_size', '').strip()
     data = {
-        'tool': tool,
         'metric': metric,
         'sector': request.form.get('sector', 'all'),
         'geo': request.form.get('geo', 'all'),
         'revenue_band': request.form.get('revenue_band', 'all'),
-        'median_score': median_score,
+        'benchmark_value': benchmark_value,
         'sample_size': int(sample_size_raw) if sample_size_raw.isdigit() else None,
         'source': request.form.get('source', '').strip() or None,
         'effective_date': request.form.get('effective_date', '').strip() or None,
@@ -185,23 +178,19 @@ def admin_delete(benchmark_id):
 @app.route('/api/benchmarks')
 @require_api_key
 def api_benchmarks():
-    tool = request.args.get('tool', '')
-    if tool not in TOOLS:
-        return jsonify({'error': f'tool must be one of {TOOLS}'}), 400
-
     sector = request.args.get('sector') or None
     geo = request.args.get('geo') or None
     revenue_band = request.args.get('revenue_band') or None
     metric = request.args.get('metric') or None
 
     if metric:
-        row, matched = find_benchmark(tool, metric, sector, geo, revenue_band)
+        row, matched = find_benchmark(metric, sector, geo, revenue_band)
         if not row:
             return jsonify({'found': False})
         return jsonify({
             'found': True,
             'metric': metric,
-            'median_score': row['median_score'],
+            'benchmark_value': row['benchmark_value'],
             'sample_size': row['sample_size'],
             'sector': row['sector'],
             'geo': row['geo'],
@@ -209,7 +198,7 @@ def api_benchmarks():
             'matched': matched,
         })
 
-    return jsonify(find_benchmarks_for_tool(tool, sector, geo, revenue_band))
+    return jsonify(find_all_benchmarks(sector, geo, revenue_band))
 
 
 @app.route('/api/health')

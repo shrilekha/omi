@@ -633,11 +633,11 @@ function generateReport() {
 // Ranks gaps worst-first so only ONE domain is ever called "highest leverage" —
 // by default that's just the raw score, but once peer data is available a
 // domain that's merely low is ranked below one that's low *and* meaningfully
-// behind its peer median, since the latter is the more actionable signal.
+// behind its peer benchmark, since the latter is the more actionable signal.
 function benchGapKey(sec, scores, benchmarkData) {
   var bench = benchmarkData && benchmarkData[sec.id];
   var pct = scores[sec.id].pct;
-  return bench ? (pct - bench.median_score) : (pct - GAP_THRESHOLD);
+  return bench ? (pct - bench.benchmark_value) : (pct - GAP_THRESHOLD);
 }
 
 function peerGroupPhrase(matched) {
@@ -660,11 +660,11 @@ function buildNextStepsList(gaps, scores, benchmarkData) {
     var pct = scores[g.id].pct;
     var bench = benchmarkData && benchmarkData[g.id];
     var detail;
-    if (bench && Math.round(bench.median_score - pct) > 0) {
-      detail = Math.round(bench.median_score - pct) + ' points below the peer median ('
-        + Math.round(bench.median_score) + '%)' + peerGroupPhrase(bench.matched);
+    if (bench && Math.round(bench.benchmark_value - pct) > 0) {
+      detail = Math.round(bench.benchmark_value - pct) + ' points below the peer benchmark ('
+        + Math.round(bench.benchmark_value) + '%)' + peerGroupPhrase(bench.matched);
     } else if (bench) {
-      detail = 'in line with or ahead of the peer median (' + Math.round(bench.median_score) + '%)'
+      detail = 'in line with or ahead of the peer benchmark (' + Math.round(bench.benchmark_value) + '%)'
         + peerGroupPhrase(bench.matched) + ' &mdash; still worth strengthening in absolute terms';
     } else {
       detail = priorityTail[i] || priorityTailRest;
@@ -855,7 +855,7 @@ function renderPeerCompareResult(data) {
 
 function buildPeerCompareRow(label, yourScore, info) {
   if (yourScore === null || yourScore === undefined) return '';
-  var delta = Math.round(yourScore - info.median_score);
+  var delta = Math.round(yourScore - info.benchmark_value);
   var deltaStr = (delta > 0 ? '+' : '') + delta;
   var deltaColor = delta > 0 ? '#0ca30c' : (delta < 0 ? '#b42318' : '#6b7280');
   var notes = [];
@@ -865,7 +865,7 @@ function buildPeerCompareRow(label, yourScore, info) {
   var note = notes.length ? ' <span style="color:#9ca3af;">(' + notes.join(', ') + ')</span>' : '';
   return '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:7px 0;border-bottom:1px solid #f3f4f6;font-size:12.5px;">'
     + '<span style="color:#374151;">' + label + note + '</span>'
-    + '<span style="white-space:nowrap;">You ' + Math.round(yourScore) + '% &middot; Peer ' + Math.round(info.median_score) + '% '
+    + '<span style="white-space:nowrap;">You ' + Math.round(yourScore) + '% &middot; Peer ' + Math.round(info.benchmark_value) + '% '
     + '<strong style="color:' + deltaColor + ';">(' + deltaStr + ')</strong></span>'
     + '</div>';
 }

@@ -9,20 +9,19 @@ _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__f
 
 _CREATE_SQLITE = """
 CREATE TABLE IF NOT EXISTS benchmarks (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    tool           TEXT NOT NULL,
-    metric         TEXT NOT NULL,
-    sector         TEXT NOT NULL,
-    geo            TEXT NOT NULL,
-    revenue_band   TEXT NOT NULL,
-    median_score   REAL NOT NULL,
-    sample_size    INTEGER,
-    source         TEXT,
-    effective_date TEXT,
-    created_by     TEXT,
-    created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(tool, metric, sector, geo, revenue_band)
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    metric          TEXT NOT NULL,
+    sector          TEXT NOT NULL,
+    geo             TEXT NOT NULL,
+    revenue_band    TEXT NOT NULL,
+    benchmark_value REAL NOT NULL,
+    sample_size     INTEGER,
+    source          TEXT,
+    effective_date  TEXT,
+    created_by      TEXT,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(metric, sector, geo, revenue_band)
 );
 """
 
@@ -52,6 +51,15 @@ def _placeholder():
 def init_db():
     if ENV != 'production':
         conn = _get_conn()
+        # One-time migration from the old per-tool schema (tool/median_score
+        # columns) to the app-agnostic one. This app is pre-launch — there's
+        # no real production data behind this switch, so the simplest correct
+        # move is to drop and recreate rather than carry a translation path
+        # for a schema that was never live. Detected by the presence of the
+        # old `tool` column.
+        existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(benchmarks)")}
+        if 'tool' in existing_cols:
+            conn.execute("DROP TABLE benchmarks")
         conn.executescript(_CREATE_SQLITE)
         conn.commit()
         conn.close()
@@ -106,21 +114,18 @@ def _execute(sql, params):
 
 # ─── CRUD for the admin UI ─────────────────────────────────────────────────────
 
-def list_benchmarks(tool=None, metric=None, sector=None):
+def list_benchmarks(metric=None, sector=None):
     conn = _get_conn()
     try:
         sql = "SELECT * FROM benchmarks WHERE 1=1"
         params = []
-        if tool:
-            sql += " AND tool = ?"
-            params.append(tool)
         if metric:
             sql += " AND metric = ?"
             params.append(metric)
         if sector:
             sql += " AND sector = ?"
             params.append(sector)
-        sql += " ORDER BY tool, metric, sector, geo, revenue_band"
+        sql += " ORDER BY metric, sector, geo, revenue_band"
         return _fetchall_dict(conn, sql, tuple(params))
     finally:
         conn.close()
@@ -136,9 +141,9 @@ def get_benchmark(benchmark_id):
 
 def upsert_benchmark(data, benchmark_id=None):
     """Insert a new row, or update one if benchmark_id is given. Returns the row id.
-    Relies on the UNIQUE(tool, metric, sector, geo, revenue_band) constraint to
-    catch accidental duplicate combinations on insert."""
-    fields = ('tool', 'metric', 'sector', 'geo', 'revenue_band', 'median_score',
+    Relies on the UNIQUE(metric, sector, geo, revenue_band) constraint to catch
+    accidental duplicate combinations on insert."""
+    fields = ('metric', 'sector', 'geo', 'revenue_band', 'benchmark_value',
               'sample_size', 'source', 'effective_date', 'created_by')
     values = [data.get(f) for f in fields]
 
@@ -161,16 +166,15 @@ def delete_benchmark(benchmark_id):
 
 # ─── Read API used by OMI / omi-deepdive ───────────────────────────────────────
 
-def _query_exact(conn, tool, metric, sector, geo, revenue_band):
+def _query_exact(conn, metric, sector, geo, revenue_band):
     return _fetchone_dict(
         conn,
-        "SELECT * FROM benchmarks WHERE tool = ? AND metric = ? AND sector = ? "
-        "AND geo = ? AND revenue_band = ?",
-        (tool, metric, sector, geo, revenue_band),
+        "SELECT * FROM benchmarks WHERE metric = ? AND sector = ? AND geo = ? AND revenue_band = ?",
+        (metric, sector, geo, revenue_band),
     )
 
 
-def find_benchmark(tool, metric, sector=None, geo=None, revenue_band=None):
+def find_benchmark(metric, sector=None, geo=None, revenue_band=None):
     """Look up one metric's benchmark for the given peer group, relaxing the
     least-fundamental axes first when the exact combination has no data:
     revenue_band -> geo -> sector -> fully global. Returns (row, matched) where
@@ -195,7 +199,7 @@ def find_benchmark(tool, metric, sector=None, geo=None, revenue_band=None):
             if key in seen:
                 continue
             seen.add(key)
-            row = _query_exact(conn, tool, metric, s, g, r)
+            row = _query_exact(conn, metric, s, g, r)
             if row:
                 return row, {
                     'sector_matched': s == sector,
@@ -207,14 +211,17 @@ def find_benchmark(tool, metric, sector=None, geo=None, revenue_band=None):
         conn.close()
 
 
-def find_benchmarks_for_tool(tool, sector=None, geo=None, revenue_band=None):
-    """All metrics for one tool at once (one call covers a full report)."""
+def find_all_benchmarks(sector=None, geo=None, revenue_band=None):
+    """Every canonical metric at once for one peer group (one call covers a
+    full report). Callers translate canonical metric ids to their own
+    domain/dimension ids — see OMI_METRIC_TO_CANONICAL / DEEPDIVE_METRIC_TO_CANONICAL
+    in each app's own backend/app.py."""
     result = {}
-    for metric_id, _label in METRICS.get(tool, []):
-        row, matched = find_benchmark(tool, metric_id, sector, geo, revenue_band)
+    for metric_id, _label in METRICS:
+        row, matched = find_benchmark(metric_id, sector, geo, revenue_band)
         if row:
             result[metric_id] = {
-                'median_score': row['median_score'],
+                'benchmark_value': row['benchmark_value'],
                 'sample_size': row['sample_size'],
                 'sector': row['sector'],
                 'geo': row['geo'],

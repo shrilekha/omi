@@ -1,10 +1,75 @@
 # Observability Maturity Index (OMI)
 
+This repository holds **three independently-deployable services**, not one
+consolidated app. They're kept separate on purpose — most importantly,
+omi-deepdive's database holds real per-client tool-stack and capability-gap
+data and must never share infrastructure with the public-facing OMI survey,
+and each service can be redeployed, restarted, or scaled without touching
+the others. `omi-benchmarks` is the odd one out structurally: OMI's own
+`frontend/`/`backend/`/`database/` sit at this repo's root rather than in
+their own subfolder like the other two do, for historical reasons (OMI came
+first). That asymmetry is cosmetic, not architectural — treat this repo as
+three siblings, not "OMI plus two extras."
+
+| Service | What it is | Port | Own DB? | Docs |
+|---|---|---|---|---|
+| **OMI** | Public self-service maturity assessment (this README) | 5050 | Yes (`omi_db`) | *(this file)* |
+| **omi-deepdive** | Internal per-app, per-org engagement tool with RBAC | 5060 | Yes (`omi_deepdive_db`), confidential | [omi-deepdive/README.md](omi-deepdive/README.md) |
+| **omi-benchmarks** | Shared peer-benchmark reference data, read by the other two | 5070 | Yes (`omi_benchmarks_db`) | [omi-benchmarks/README.md](omi-benchmarks/README.md) |
+
+Each has its own `.env`/`.env.example`, `requirements.txt`, and
+`database/schema.sql` — that per-service duplication is deliberate (each one
+must stay runnable on its own), not an accident to clean up. What genuinely
+had no single home before is a cross-service view of which environment
+variables exist at all, which is what the next section is for.
+
+## Environment variables at a glance
+
+One row per variable, grouped by which service's `.env` it lives in. This
+table is a map, not the source of truth — each service's own
+`.env.example` has the full explanation and setup steps for anything
+non-obvious (Google OAuth, Gmail API, etc.).
+
+**OMI** (`.env`, this repo's root)
+
+| Variable | Purpose |
+|---|---|
+| `ENV` | `development` (SQLite, console email) or `production` (MySQL, Gmail API) |
+| `SECRET_KEY` | Flask session signing |
+| `PORT` | default `5050` |
+| `SQLITE_PATH` | dev DB filename |
+| `DB_HOST` / `DB_USER` / `DB_PASS` / `DB_NAME` | prod MySQL connection |
+| `GMAIL_SA_CREDENTIALS_JSON` / `GMAIL_SENDER` | prod report emails via Gmail API |
+| `BENCHMARKS_URL` | base URL of the omi-benchmarks service; blank = no peer-comparison card |
+| `BENCHMARKS_API_KEY` | must match `BENCHMARKS_API_KEY` in omi-benchmarks' own `.env` |
+
+**omi-deepdive** (`omi-deepdive/.env`)
+
+| Variable | Purpose |
+|---|---|
+| `ENV`, `SECRET_KEY`, `PORT` (default `5060`), `SQLITE_PATH`, `DB_HOST`/`DB_USER`/`DB_PASS`/`DB_NAME` | same shape as OMI's, own separate DB |
+| `ADMIN_KEY` | password gate for `/admin` (default admin login) |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `GOOGLE_OAUTH_ALLOWED_DOMAIN` | set both ID+secret to swap `/admin` to Google sign-in + RBAC |
+| `INITIAL_ADMIN_EMAILS` | bootstraps the first `admin` role once OAuth is on |
+| `BENCHMARKS_URL` / `BENCHMARKS_API_KEY` | same as OMI's — must match omi-benchmarks' `.env` |
+
+**omi-benchmarks** (`omi-benchmarks/.env`)
+
+| Variable | Purpose |
+|---|---|
+| `ENV`, `SECRET_KEY`, `PORT` (default `5070`), `SQLITE_PATH`, `DB_HOST`/`DB_USER`/`DB_PASS`/`DB_NAME` | same shape again, own separate DB |
+| `ADMIN_KEY` | password gate for the benchmark-entry admin UI |
+| `BENCHMARKS_API_KEY` | the shared secret OMI's and omi-deepdive's backends must send — **this one value has to be identical across all three `.env` files**, it's the one variable that actually couples the services together |
+
+---
+
+## OMI — what it is
+
 A self-service web assessment tool for enterprise technology leaders. Respondents complete a 25-question maturity assessment across five observability domains and receive a scored report with gap analysis.
 
 ---
 
-## Local setup (under 5 minutes)
+## OMI — Local setup (under 5 minutes)
 
 **Requirements:** Python 3.9+
 

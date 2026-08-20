@@ -20,6 +20,18 @@ app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
 BENCHMARKS_URL = os.getenv('BENCHMARKS_URL', '').rstrip('/')
 BENCHMARKS_API_KEY = os.getenv('BENCHMARKS_API_KEY', '')
 
+# omi-benchmarks stores figures against an app-agnostic capability-area id
+# (see omi-benchmarks/backend/constants.py METRICS) so the same number can
+# be entered once and read by both OMI and omi-deepdive — this maps OMI's
+# own 5 domain ids onto those canonical ids. `comp` has no canonical
+# counterpart requested by omi-deepdive, which is fine; it's still one of
+# the canonical metrics, just one only OMI ever asks for.
+OMI_METRIC_TO_CANONICAL = {
+    'overall': 'overall', 'txn': 'txn', 'app': 'app_perf', 'infra': 'infra_network',
+    'log': 'log', 'comp': 'compliance',
+}
+CANONICAL_TO_OMI_METRIC = {v: k for k, v in OMI_METRIC_TO_CANONICAL.items()}
+
 
 @app.route('/')
 def index():
@@ -44,7 +56,7 @@ def benchmarks_proxy():
     if not BENCHMARKS_URL:
         return jsonify({})
 
-    params = {'tool': 'omi'}
+    params = {}
     for key in ('sector', 'geo', 'revenue_band'):
         value = request.args.get(key, '')
         if value:
@@ -55,10 +67,19 @@ def benchmarks_proxy():
             f'{BENCHMARKS_URL}/api/benchmarks', params=params,
             headers={'X-Api-Key': BENCHMARKS_API_KEY}, timeout=5,
         )
-        return jsonify(resp.json()), resp.status_code
+        canonical_data = resp.json() if resp.ok else {}
     except (requests.RequestException, ValueError) as e:
         app.logger.warning(f'benchmarks proxy error: {e}')
-        return jsonify({})
+        canonical_data = {}
+
+    # Translate canonical capability-area ids back to OMI's own domain ids
+    # so the frontend can key straight off scores.<domain>.pct as before.
+    result = {}
+    for canonical_id, payload in canonical_data.items():
+        omi_id = CANONICAL_TO_OMI_METRIC.get(canonical_id)
+        if omi_id:
+            result[omi_id] = payload
+    return jsonify(result)
 
 
 @app.route('/api/health')

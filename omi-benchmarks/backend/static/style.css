@@ -37,9 +37,10 @@ input:focus, select:focus { outline: none; border-color: #C60675; }
 .filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .filters select { margin-bottom: 0; width: auto; min-width: 150px; }
 .filter-sep { width: 1px; height: 22px; background: #e5e7eb; margin: 0 2px; }
-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: auto; }
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
 th { color: #6b7280; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+.th-hint { display: block; text-transform: none; font-weight: 400; letter-spacing: 0; color: #b0b3ba; font-size: 10px; margin-top: 2px; }
 .empty { color: #9ca3af; font-size: 13px; padding: 2rem 0; text-align: center; }
 
 /* ── benchmark grid (pre-populated, edit-in-place cells) ─────────────────── */
@@ -51,10 +52,14 @@ input.cell {
   width: auto; min-width: 56px; margin-bottom: 0; padding: 5px 7px; font-size: 12.5px;
   border-color: #e9eaed;
 }
-input.cell-source, input.cell-created-by { min-width: 100px; }
+/* Free-text columns stay compact until you actually need to type in them —
+   claiming a wide column for every row up front is what was pushing
+   "Entered by" off the edge of the screen. */
+input.cell-source, input.cell-created-by { width: 72px; transition: width 0.15s; }
+input.cell-source:focus, input.cell-created-by:focus { width: 160px; }
 input.cell-date { min-width: 118px; }
-input.cell-median { width: 72px; font-weight: 600; }
-input.cell-sample { width: 64px; }
+input.cell-value { width: 68px; font-weight: 600; }
+input.cell-sample { width: 56px; }
 .cell-status-wrap { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .cell-status { display: inline-block; width: 14px; text-align: center; font-size: 13px; font-weight: 700; }
 .cell-status.saving { color: #9ca3af; }

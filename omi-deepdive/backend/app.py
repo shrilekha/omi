@@ -41,13 +41,29 @@ def _label(options, value):
     return dict(options).get(value) if value and value != 'all' else None
 
 
+# omi-benchmarks stores figures against an app-agnostic capability-area id
+# (see omi-benchmarks/backend/constants.py METRICS) so the same number can
+# be entered once and read by both omi-deepdive and OMI — this maps
+# omi-deepdive's own 8 dimension ids onto those canonical ids. 'network' and
+# 'infra' BOTH map to 'infra_network' deliberately: OMI treats those as one
+# combined domain, so both of deepdive's finer-grained dimensions compare
+# against that same one figure. 'rum'/'synthetic'/'correlation' have no OMI
+# counterpart, which is fine — they're still canonical metrics, just ones
+# only omi-deepdive ever asks for.
+DEEPDIVE_METRIC_TO_CANONICAL = {
+    'overall': 'overall', 'biztxn': 'txn', 'apm': 'app_perf',
+    'infra': 'infra_network', 'network': 'infra_network', 'logs': 'log',
+    'rum': 'rum', 'synthetic': 'synthetic', 'correlation': 'correlation',
+}
+
+
 def get_org_benchmarks(org):
-    """All deepdive metrics for one org's stored sector/geo/revenue, or {} if
-    the benchmarks service isn't configured, unreachable, or has nothing for
-    this org yet — reports must render fine either way."""
+    """All deepdive dimensions' benchmarks for one org's stored sector/geo/
+    revenue, or {} if the benchmarks service isn't configured, unreachable,
+    or has nothing for this org yet — reports must render fine either way."""
     if not BENCHMARKS_URL:
         return {}
-    params = {'tool': 'deepdive'}
+    params = {}
     for key in ('sector', 'geo', 'revenue_band'):
         value = org.get(key)
         if value and value != 'all':
@@ -57,10 +73,19 @@ def get_org_benchmarks(org):
             f'{BENCHMARKS_URL}/api/benchmarks', params=params,
             headers={'X-Api-Key': BENCHMARKS_API_KEY}, timeout=5,
         )
-        return resp.json() if resp.ok else {}
+        canonical_data = resp.json() if resp.ok else {}
     except (requests.RequestException, ValueError) as e:
         app.logger.warning(f'benchmarks lookup failed: {e}')
         return {}
+
+    # Translate canonical ids back to deepdive's own dimension ids — a
+    # canonical hit can populate more than one dimension (infra_network ->
+    # both 'infra' and 'network'), by design.
+    result = {}
+    for dim_id, canonical_id in DEEPDIVE_METRIC_TO_CANONICAL.items():
+        if canonical_id in canonical_data:
+            result[dim_id] = canonical_data[canonical_id]
+    return result
 
 # Admin login via Google OAuth — off by default. Set both GOOGLE_OAUTH_CLIENT_ID
 # and GOOGLE_OAUTH_CLIENT_SECRET (see .env.example) to switch admin login from

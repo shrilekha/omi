@@ -272,6 +272,7 @@ omi-deepdive/
 │   ├── db.py            # DB abstraction (SQLite in dev, MySQL in prod)
 │   ├── scoring.py        # Per-dimension + overall scoring, N/A renormalization, maturity band
 │   ├── questions.py       # The question bank — edit here to add/reword questions or dimensions
+│   ├── constants.py       # Sector/geo/revenue-band lists for org creation (peer benchmarks)
 │   ├── templates/
 │   │   ├── assess.html          # Per-app assessment form (pre-fills from prior submission)
 │   │   ├── submission_summary.html  # Post-submit confirmation and /app/<token>/print view
@@ -322,3 +323,19 @@ Same bands as OMI, for a consistent vocabulary across both tools:
 | Synthetic / Proactive Monitoring | 10% |
 | Cross-Layer Correlation & Alerting | 10% |
 | Log Observability | 5% |
+
+## Peer benchmarks
+
+Every org has a `sector`/`geo`/`revenue_band` set once at creation (`/admin/new`)
+— there's no picker for app owners, unlike OMI where the respondent chooses.
+Both the per-app report (`/app/<token>` after submitting) and the
+consolidated report (`/report/<report_token>`) show a "Peer benchmark"
+figure alongside each dimension's score, sourced from the separate
+**omi-benchmarks** service (see `../omi-benchmarks/README.md`) via
+`get_org_benchmarks()` in `backend/app.py`. If `BENCHMARKS_URL` is unset or
+that service is unreachable, the benchmark column/line simply doesn't
+render — a benchmarks outage never breaks a report.
+
+`DEEPDIVE_METRIC_TO_CANONICAL` in `backend/app.py` maps this app's 8
+dimension ids onto omi-benchmarks' shared canonical metric list — figures
+are entered once there and read by both this app and OMI, not duplicated.

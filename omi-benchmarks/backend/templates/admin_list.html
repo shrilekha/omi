@@ -15,9 +15,11 @@
       <span class="badge">omi-benchmarks &middot; admin</span>
       <h1>Industry benchmarks</h1>
       <p class="sub">
-        Every sector &times; geo &times; revenue-band combination for the tool/metric below is
-        already listed &mdash; just type a median into the rows you have data for and tab out;
-        it saves itself. Leave the rest blank. Filters narrow the list; they don't gate entry.
+        Entered once, used by both OMI and omi-deepdive &mdash; there's no tool
+        to pick, just a capability area. Every sector &times; geo &times; revenue-band
+        combination for the metric below is already listed; type a benchmark
+        value into the rows you have data for and tab out, it saves itself.
+        Leave the rest blank. Filters narrow the list; they don't gate entry.
       </p>
     </div>
     <a href="{{ url_for('admin_logout') }}" class="logout-link">Log out</a>
@@ -25,11 +27,6 @@
 
   <form method="GET" class="filters-form">
     <div class="filters">
-      <select name="tool" onchange="this.form.metric.value=''; this.form.submit()">
-        {% for t in tools %}
-        <option value="{{ t }}" {% if tool == t %}selected{% endif %}>{{ tool_labels[t] }}</option>
-        {% endfor %}
-      </select>
       <select name="metric" onchange="this.form.submit()">
         {% for mid, label in metric_options %}
         <option value="{{ mid }}" {% if metric == mid %}selected{% endif %}>{{ label }}</option>
@@ -62,18 +59,20 @@
       <thead>
         <tr>
           <th>Sector</th><th>Geo</th><th>Revenue band</th>
-          <th>Median (0&ndash;100)</th><th>Sample</th><th>Source / notes</th>
+          <th>Benchmark value (0&ndash;100)</th>
+          <th>Sample <span class="th-hint">peers behind this figure, optional</span></th>
+          <th>Source / notes</th>
           <th>Effective date</th><th>Entered by</th><th></th>
         </tr>
       </thead>
       <tbody>
         {% for row in grid_rows %}
-        <tr class="grid-row" data-id="{{ row.id }}" data-tool="{{ tool }}" data-metric="{{ metric }}"
+        <tr class="grid-row" data-id="{{ row.id }}" data-metric="{{ metric }}"
             data-sector="{{ row.sector }}" data-geo="{{ row.geo }}" data-revenue="{{ row.revenue_band }}">
           <td>{{ row.sector_label }}</td>
           <td>{{ row.geo_label }}</td>
           <td>{{ row.revenue_label }}</td>
-          <td><input type="number" class="cell cell-median" min="0" max="100" step="0.1" value="{{ row.median_score }}" onblur="submitCell(this)"></td>
+          <td><input type="number" class="cell cell-value" min="0" max="100" step="0.1" value="{{ row.benchmark_value }}" onblur="submitCell(this)"></td>
           <td><input type="number" class="cell cell-sample" min="0" step="1" value="{{ row.sample_size }}" onblur="submitCell(this)"></td>
           <td><input type="text" class="cell cell-source" value="{{ row.source }}" onblur="submitCell(this)"></td>
           <td><input type="date" class="cell cell-date" value="{{ row.effective_date }}" onblur="submitCell(this)"></td>
@@ -87,14 +86,15 @@
       </tbody>
     </table>
   </div>
-  <p class="sub" style="margin-top:10px;">{{ grid_rows|length }} row{{ 's' if grid_rows|length != 1 }} shown for {{ tool_labels[tool] }} &middot; narrow with the filters above if this is too many to scan at once.</p>
+  <p class="sub" style="margin-top:10px;">{{ grid_rows|length }} row{{ 's' if grid_rows|length != 1 }} shown &middot; narrow with the filters above if this is too many to scan at once.</p>
 </div>
 
 <script>
-var saveTimers = {};
+var saveTimers = {};   // debounce timers, keyed by row
+var pendingRows = {};  // rows with an unsent debounced save, flushed before navigating away
 
 function rowKey(tr) {
-  return [tr.dataset.tool, tr.dataset.metric, tr.dataset.sector, tr.dataset.geo, tr.dataset.revenue].join('|');
+  return [tr.dataset.metric, tr.dataset.sector, tr.dataset.geo, tr.dataset.revenue].join('|');
 }
 
 function setStatus(tr, state, message) {
@@ -106,32 +106,51 @@ function setStatus(tr, state, message) {
 
 function submitCell(input) {
   var tr = input.closest('tr');
-  var median = tr.querySelector('.cell-median').value.trim();
-  if (!median) { setStatus(tr, '', ''); return; }
+  var value = tr.querySelector('.cell-value').value.trim();
+  if (!value) { setStatus(tr, '', ''); return; }
 
   // Debounce per row — tabbing through several fields in the same row within
   // 300ms sends one save with all of them, not one fetch per field.
   var key = rowKey(tr);
   if (saveTimers[key]) clearTimeout(saveTimers[key]);
+  pendingRows[key] = tr;
   saveTimers[key] = setTimeout(function() { saveRow(tr); }, 300);
 }
 
+// A debounced save that's still waiting when the admin clicks "Log out" or
+// closes the tab would otherwise be silently dropped — this is almost
+// certainly why a just-typed value can look like it "didn't save". Flush
+// every pending row immediately (with keepalive, below) the moment the page
+// starts to go away, rather than waiting on the 300ms timer.
+window.addEventListener('pagehide', flushPendingSaves);
+window.addEventListener('beforeunload', flushPendingSaves);
+function flushPendingSaves() {
+  Object.keys(pendingRows).forEach(function(key) {
+    clearTimeout(saveTimers[key]);
+    saveRow(pendingRows[key]);
+    delete pendingRows[key];
+  });
+}
+
 function saveRow(tr) {
+  delete pendingRows[rowKey(tr)];
   setStatus(tr, 'saving', 'Saving…');
   var fd = new FormData();
   fd.set('id', tr.dataset.id || '');
-  fd.set('tool', tr.dataset.tool);
   fd.set('metric', tr.dataset.metric);
   fd.set('sector', tr.dataset.sector);
   fd.set('geo', tr.dataset.geo);
   fd.set('revenue_band', tr.dataset.revenue);
-  fd.set('median_score', tr.querySelector('.cell-median').value.trim());
+  fd.set('benchmark_value', tr.querySelector('.cell-value').value.trim());
   fd.set('sample_size', tr.querySelector('.cell-sample').value.trim());
   fd.set('source', tr.querySelector('.cell-source').value.trim());
   fd.set('effective_date', tr.querySelector('.cell-date').value.trim());
   fd.set('created_by', tr.querySelector('.cell-created-by').value.trim());
 
-  fetch('{{ url_for("admin_save") }}', { method: 'POST', body: fd })
+  // keepalive lets this request finish even if the page is mid-navigation
+  // (e.g. the admin just clicked Log out) — without it the browser can
+  // cancel an in-flight fetch on unload before it reaches the server.
+  fetch('{{ url_for("admin_save") }}', { method: 'POST', body: fd, keepalive: true })
     .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
     .then(function(res) {
       if (res.ok && res.data.ok) {
