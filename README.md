@@ -255,3 +255,26 @@ All scored question content lives in `frontend/questions.js`. No other file need
 | Infrastructure & Network | 20% |
 | Log Management & Data Lake | 15% |
 | Compliance & Audit Readiness | 15% |
+
+---
+
+## Peer benchmarks
+
+The results screen can show a respondent how their score compares to
+peers — filtered by the sector/country/revenue band they registered with.
+This figure is **not** stored or entered here: it's read server-to-server
+from the separate **omi-benchmarks** service (see
+[omi-benchmarks/README.md](omi-benchmarks/README.md)) via `benchmarks_proxy()`
+in `backend/app.py`. Someone from leadership/customer success feeds the
+actual figures into omi-benchmarks' own `/admin/benchmarks` grid — nothing
+in this app's code or database is where those numbers get entered. If
+`BENCHMARKS_URL` is unset or that service is unreachable, the
+peer-comparison card simply doesn't render — a benchmarks outage never
+breaks a report.
+
+`OMI_METRIC_TO_CANONICAL` / `CANONICAL_TO_OMI_METRIC` (`backend/app.py`) map
+this app's 5 domain ids onto omi-benchmarks' shared canonical metric list,
+and `OMI_COUNTRY_TO_BENCHMARK_GEO` maps OMI's 7-value country dropdown onto
+omi-benchmarks' coarser 4-value geo axis (India / Middle East /
+International) — see omi-benchmarks' README for why that axis is coarser
+than OMI's own.
