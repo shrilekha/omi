@@ -454,6 +454,6 @@ def health():
 if __name__ == '__main__':
     init_db()
     debug = os.getenv('ENV', 'development') == 'development'
-    port = int(os.getenv('PORT', 5060))
+    port = int(os.getenv('PORT', 5065))
     print(f'\n  omi-deepdive running at http://localhost:{port}\n')
     app.run(debug=debug, port=port)

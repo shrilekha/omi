@@ -54,7 +54,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Open **http://localhost:5060** (it redirects straight to `/admin`). The SQLite
+Open **http://localhost:5065** (it redirects straight to `/admin`). The SQLite
 database — including the `admin_users` RBAC table — is auto-created at
 `local_dev.db` (project root) on first run; no separate migration step in dev.
 
@@ -186,7 +186,7 @@ from the section above.
 
 ```bash
 cd backend
-gunicorn -w 4 -b 0.0.0.0:5060 app:app
+gunicorn -w 4 -b 0.0.0.0:5065 app:app
 ```
 
 Multiple workers are fine with no extra configuration: sessions are stateless
@@ -210,7 +210,7 @@ server {
     server_name omi-deepdive.yourdomain.com;
 
     location / {
-        proxy_pass http://127.0.0.1:5060;
+        proxy_pass http://127.0.0.1:5065;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host $host;

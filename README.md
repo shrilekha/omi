@@ -14,7 +14,7 @@ three siblings, not "OMI plus two extras."
 | Service | What it is | Port | Own DB? | Docs |
 |---|---|---|---|---|
 | **OMI** | Public self-service maturity assessment (this README) | 5050 | Yes (`omi_db`) | *(this file)* |
-| **omi-deepdive** | Internal per-app, per-org engagement tool with RBAC | 5060 | Yes (`omi_deepdive_db`), confidential | [omi-deepdive/README.md](omi-deepdive/README.md) |
+| **omi-deepdive** | Internal per-app, per-org engagement tool with RBAC | 5065 | Yes (`omi_deepdive_db`), confidential | [omi-deepdive/README.md](omi-deepdive/README.md) |
 | **omi-benchmarks** | Shared peer-benchmark reference data, read by the other two | 5070 | Yes (`omi_benchmarks_db`) | [omi-benchmarks/README.md](omi-benchmarks/README.md) |
 
 Each has its own `.env`/`.env.example`, `requirements.txt`, and
@@ -47,7 +47,7 @@ non-obvious (Google OAuth, Gmail API, etc.).
 
 | Variable | Purpose |
 |---|---|
-| `ENV`, `SECRET_KEY`, `PORT` (default `5060`), `SQLITE_PATH`, `DB_HOST`/`DB_USER`/`DB_PASS`/`DB_NAME` | same shape as OMI's, own separate DB |
+| `ENV`, `SECRET_KEY`, `PORT` (default `5065`), `SQLITE_PATH`, `DB_HOST`/`DB_USER`/`DB_PASS`/`DB_NAME` | same shape as OMI's, own separate DB |
 | `ADMIN_KEY` | password gate for `/admin` (default admin login) |
 | `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `GOOGLE_OAUTH_ALLOWED_DOMAIN` | set both ID+secret to swap `/admin` to Google sign-in + RBAC |
 | `INITIAL_ADMIN_EMAILS` | bootstraps the first `admin` role once OAuth is on |
