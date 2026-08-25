@@ -87,6 +87,9 @@ actually be entered — nothing computes them for you.
 
 ## Local setup
 
+To run this alongside OMI and omi-deepdive with one command instead, see
+`python start_all.py` in the [root README](../README.md#quick-start--run-all-three-at-once).
+
 ```bash
 cd omi-benchmarks
 cp .env.example .env

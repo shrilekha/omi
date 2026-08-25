@@ -23,6 +23,25 @@ must stay runnable on its own), not an accident to clean up. What genuinely
 had no single home before is a cross-service view of which environment
 variables exist at all, which is what the next section is for.
 
+## Quick start — run all three at once
+
+For local development, `start_all.py` at the repo root creates any missing
+`.env` (from that service's own `.env.example` — an existing `.env` is never
+touched, so this is always safe to re-run) and then starts all three
+services together, with each one's output prefixed by name in a single
+terminal:
+
+```bash
+python start_all.py
+```
+
+Open **http://localhost:5050** (OMI), **:5065** (omi-deepdive), or **:5070**
+(omi-benchmarks). Ctrl+C stops all three. This is a dev convenience only —
+production still runs each service separately behind its own
+gunicorn/Nginx (see "Production setup" below and each service's own
+README). To work on just one service, or to set values before first run,
+follow that service's own "Local setup" section instead.
+
 ## Environment variables at a glance
 
 One row per variable, grouped by which service's `.env` it lives in. This
@@ -70,6 +89,9 @@ A self-service web assessment tool for enterprise technology leaders. Respondent
 ---
 
 ## OMI — Local setup (under 5 minutes)
+
+To run this alongside omi-deepdive and omi-benchmarks with one command
+instead, see [Quick start](#quick-start--run-all-three-at-once) above.
 
 **Requirements:** Python 3.9+
 

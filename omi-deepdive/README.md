@@ -43,6 +43,9 @@ any other app's data.
 
 ## Local setup (under 5 minutes)
 
+To run this alongside OMI and omi-benchmarks with one command instead, see
+`python start_all.py` in the [root README](../README.md#quick-start--run-all-three-at-once).
+
 **Requirements:** Python 3.9+
 
 ```bash
