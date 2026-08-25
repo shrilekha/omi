@@ -25,6 +25,44 @@
     <a href="{{ url_for('admin_logout') }}" class="logout-link">Log out</a>
   </div>
 
+  <div class="card excel-toolbar">
+    <div class="excel-toolbar-row">
+      <div>
+        <strong>Excel</strong>
+        <p class="sub">Export the full grid (every metric, every row) to hand to the
+          content team, or import a filled-in copy back in — a bulk alternative to
+          typing into the grid below.</p>
+      </div>
+      <div class="excel-actions">
+        <a href="{{ url_for('admin_export') }}" class="excel-btn excel-btn-export">Export to Excel</a>
+        <form method="POST" action="{{ url_for('admin_import') }}" enctype="multipart/form-data" class="import-form">
+          <input type="hidden" name="metric" value="{{ metric }}">
+          <input type="file" name="file" accept=".xlsx" required>
+          <button type="submit" class="excel-btn excel-btn-import">Import from Excel</button>
+        </form>
+      </div>
+    </div>
+
+    {% if import_result %}
+      {% if import_result.errors %}
+      <div class="error-box" style="margin-top:1rem;">
+        <strong>{{ import_result.errors|length }} problem{{ 's' if import_result.errors|length != 1 }} found</strong>
+        {% if import_result.inserted or import_result.updated %}
+          &mdash; {{ import_result.inserted }} inserted, {{ import_result.updated }} updated anyway.
+        {% endif %}
+        <ul style="margin:6px 0 0; padding-left:18px;">
+          {% for e in import_result.errors %}<li>{{ e }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% else %}
+      <div class="success-box" style="margin-top:1rem;">
+        Import complete &mdash; {{ import_result.inserted }} inserted, {{ import_result.updated }} updated,
+        {{ import_result.skipped }} blank row{{ 's' if import_result.skipped != 1 }} skipped.
+      </div>
+      {% endif %}
+    {% endif %}
+  </div>
+
   <form method="GET" class="filters-form">
     <div class="filters">
       <select name="metric" onchange="this.form.submit()">

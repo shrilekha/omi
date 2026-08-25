@@ -1,7 +1,8 @@
 import os
 from functools import wraps
+from io import BytesIO
 
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, abort
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, abort, send_file
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 
@@ -15,6 +16,7 @@ from db import (
     find_benchmark, find_all_benchmarks,
 )
 from constants import SECTORS, SECTOR_SHORT_LABELS, GEOS, REVENUE_BANDS, METRICS
+from benchmarks_excel import build_workbook, import_workbook, load_workbook_file
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-change-in-prod')
@@ -121,6 +123,7 @@ def admin_list():
         'admin_list.html', metric=metric, grid_rows=grid_rows, metric_options=METRICS,
         sectors=SECTORS, geos=GEOS, revenue_bands=REVENUE_BANDS,
         sector_filter=sector_filter, geo_filter=geo_filter, revenue_filter=revenue_filter,
+        import_result=session.pop('benchmarks_import_result', None),
     )
 
 
@@ -174,6 +177,45 @@ def admin_save():
 def admin_delete(benchmark_id):
     delete_benchmark(benchmark_id)
     return jsonify({'ok': True})
+
+
+@app.route('/admin/benchmarks/export')
+@require_admin
+def admin_export():
+    """Every metric's full sector x geo x revenue-band grid, one sheet per
+    metric, as a download — the offline counterpart to typing into the grid
+    above. Same shape /admin/benchmarks/import expects back."""
+    buf = BytesIO()
+    build_workbook().save(buf)
+    buf.seek(0)
+    return send_file(
+        buf, as_attachment=True, download_name='Benchmarks_Export.xlsx',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+
+
+@app.route('/admin/benchmarks/import', methods=['POST'])
+@require_admin
+def admin_import():
+    """Bulk-loads a workbook shaped like the export above. Upserts by natural
+    key (metric, sector, geo, revenue_band) — safe to import the same file
+    more than once. Results are stashed in the session and shown as a banner
+    on the next /admin/benchmarks render (see admin_list())."""
+    file = request.files.get('file')
+    empty = {'inserted': 0, 'updated': 0, 'skipped': 0, 'errors': []}
+    if not file or not file.filename:
+        session['benchmarks_import_result'] = {**empty, 'errors': ['No file selected.']}
+    else:
+        try:
+            wb = load_workbook_file(file)
+        except Exception:
+            session['benchmarks_import_result'] = {
+                **empty, 'errors': [f'Could not read "{file.filename}" — is it a valid .xlsx workbook?']
+            }
+        else:
+            session['benchmarks_import_result'] = import_workbook(wb)
+
+    return redirect(url_for('admin_list', metric=request.form.get('metric', '')))
 
 
 # ─── Read API — server-to-server only, never called from a browser ────────────
