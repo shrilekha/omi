@@ -15,7 +15,8 @@ from dotenv import load_dotenv
 # override=True so this app's own .env always wins over a same-named var already
 # sitting in the shell environment (e.g. PORT leaked in from another of this
 # repo's apps started earlier in the same terminal).
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'), override=True)
+ENV_PATH = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(ENV_PATH, override=True)
 
 from db import (
     init_db, get_app_by_token, get_org_by_report_token, get_apps_for_org,
@@ -459,5 +460,6 @@ if __name__ == '__main__':
     debug = os.getenv('ENV', 'development') == 'development'
     port = int(os.getenv('PORT', 5065))
     where = f'http://localhost:{port}' if debug else f'port {port}'
-    print(f'\n  omi-deepdive running at {where}\n')
+    print(f'\n  omi-deepdive running at {where}')
+    print(f'  Config loaded from {os.path.abspath(ENV_PATH)}\n')
     app.run(debug=debug, port=port)

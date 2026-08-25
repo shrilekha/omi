@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 # environment (e.g. PORT leaked in from another of this repo's apps started
 # earlier in the same terminal) — these are independently configured apps that
 # just happen to often run side by side on one machine.
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'), override=True)
+ENV_PATH = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(ENV_PATH, override=True)
 
 from db import init_db, save_submission
 from email_sender import send_report_email
@@ -113,5 +114,6 @@ if __name__ == '__main__':
     debug = os.getenv('ENV', 'development') == 'development'
     port = int(os.getenv('PORT', 5050))
     where = f'http://localhost:{port}' if debug else f'port {port}'
-    print(f'\n  OMI running at {where}\n')
+    print(f'\n  OMI running at {where}')
+    print(f'  Config loaded from {os.path.abspath(ENV_PATH)}\n')
     app.run(debug=debug, port=port)
