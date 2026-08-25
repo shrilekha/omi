@@ -4,8 +4,12 @@ import requests
 from flask import Flask, send_from_directory, request, jsonify
 from dotenv import load_dotenv
 
-# Load .env from project root (one level up from backend/)
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+# Load .env from project root (one level up from backend/). override=True so this
+# app's own .env always wins over a same-named var already sitting in the shell
+# environment (e.g. PORT leaked in from another of this repo's apps started
+# earlier in the same terminal) — these are independently configured apps that
+# just happen to often run side by side on one machine.
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'), override=True)
 
 from db import init_db, save_submission
 from email_sender import send_report_email
@@ -108,5 +112,6 @@ if __name__ == '__main__':
     init_db()
     debug = os.getenv('ENV', 'development') == 'development'
     port = int(os.getenv('PORT', 5050))
-    print(f'\n  OMI running at http://localhost:{port}\n')
+    where = f'http://localhost:{port}' if debug else f'port {port}'
+    print(f'\n  OMI running at {where}\n')
     app.run(debug=debug, port=port)
