@@ -10,7 +10,10 @@ from dotenv import load_dotenv
 # earlier in the same terminal) — these are independently configured apps that
 # just happen to often run side by side on one machine.
 ENV_PATH = os.path.join(os.path.dirname(__file__), '..', '.env')
-load_dotenv(ENV_PATH, override=True)
+# load_dotenv() silently does nothing if ENV_PATH doesn't exist (no error, no
+# warning) — ENV_LOADED records which happened so the startup print below can
+# say so honestly, instead of claiming a config file loaded when nothing did.
+ENV_LOADED = load_dotenv(ENV_PATH, override=True)
 
 from db import init_db, save_submission
 from email_sender import send_report_email
@@ -115,5 +118,10 @@ if __name__ == '__main__':
     port = int(os.getenv('PORT', 5050))
     where = f'http://localhost:{port}' if debug else f'port {port}'
     print(f'\n  OMI running at {where}')
-    print(f'  Config loaded from {os.path.abspath(ENV_PATH)}\n')
+    if ENV_LOADED:
+        print(f'  Config loaded from {os.path.abspath(ENV_PATH)}\n')
+    else:
+        abs_path = os.path.abspath(ENV_PATH)
+        print(f'  No .env found at {abs_path} — using process environment and '
+              f'defaults only. Run: cp {abs_path}.example {abs_path}\n')
     app.run(debug=debug, port=port)
