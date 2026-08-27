@@ -7,8 +7,9 @@ import urllib.request
 import uuid
 from datetime import datetime
 from functools import wraps
+from io import BytesIO
 import requests
-from flask import Flask, render_template, request, redirect, url_for, abort, session
+from flask import Flask, render_template, request, redirect, url_for, abort, session, send_file
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 
@@ -31,6 +32,7 @@ from db import (
 from scoring import compute_scores
 from questions import DIMENSIONS, OWNERSHIP_QUESTIONS
 from constants import SECTORS, GEOS, REVENUE_BANDS
+from questions_excel import build_workbook, read_workbook_file, apply_import, load_current
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-change-in-prod')
@@ -373,6 +375,61 @@ def admin_users_page():
         'admin_users.html', users=users, roles=ALL_ROLES, error=error,
         oauth_enabled=OAUTH_ENABLED,
     )
+
+
+# ─── Admin: questions (Excel export/import) ────────────────────────────────
+
+@app.route('/admin/questions')
+@require_role(*MANAGE_ROLES)
+def admin_questions():
+    ownership, dimensions = load_current()
+    counts = {d['id']: len(d['questions']) for d in dimensions}
+    counts['total'] = sum(counts.values())
+    return render_template(
+        'admin_questions.html', dimensions=dimensions, counts=counts,
+        import_result=session.pop('questions_import_result', None),
+    )
+
+
+@app.route('/admin/questions/export')
+@require_role(*MANAGE_ROLES)
+def admin_questions_export():
+    buf = BytesIO()
+    build_workbook().save(buf)
+    buf.seek(0)
+    return send_file(
+        buf, as_attachment=True, download_name='omi-deepdive_Questions.xlsx',
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+
+
+@app.route('/admin/questions/import', methods=['POST'])
+@require_role(*MANAGE_ROLES)
+def admin_questions_import():
+    """All-or-nothing, same as OMI's: questions.py is one generated file
+    (well, mostly generated — see questions_excel.py's merge logic), so a
+    partial write would leave it in a state nobody asked for."""
+    file = request.files.get('file')
+    if not file or not file.filename:
+        session['questions_import_result'] = {'errors': ['No file selected.'], 'diff': []}
+        return redirect(url_for('admin_questions'))
+
+    try:
+        ownership_after, dims_after, errors = read_workbook_file(file)
+    except Exception:
+        session['questions_import_result'] = {
+            'errors': [f'Could not read "{file.filename}" — is it a valid .xlsx workbook?'],
+            'diff': [],
+        }
+        return redirect(url_for('admin_questions'))
+
+    if errors:
+        session['questions_import_result'] = {'errors': errors, 'diff': []}
+    else:
+        diff = apply_import(ownership_after, dims_after)
+        session['questions_import_result'] = {'errors': [], 'diff': diff}
+
+    return redirect(url_for('admin_questions'))
 
 
 @app.route('/dashboard')

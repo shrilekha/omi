@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>omi-deepdive — Questions</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="wrap">
+  <header class="page-header">
+    <span class="badge">omi-deepdive · admin</span>
+    <h1>Question bank</h1>
+    <p class="sub">
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      {% if session.admin_role == 'admin' %}&nbsp;·&nbsp;<a href="{{ url_for('admin_users_page') }}">Manage users</a>{% endif %}
+      &nbsp;·&nbsp;
+      {% if session.admin_email %}Signed in as {{ session.admin_email }} &nbsp;·&nbsp; {% endif %}
+      <a href="{{ url_for('admin_logout') }}">Log out</a>
+    </p>
+  </header>
+
+  <nav class="tab-nav">
+    <a href="{{ url_for('admin_new') }}">Create organization</a>
+    <a href="{{ url_for('admin_orgs') }}">Existing organizations</a>
+    <a href="{{ url_for('admin_questions') }}" class="active">Questions</a>
+  </nav>
+
+  <section class="card" style="border-color:#fed7aa; background:#fffbeb;">
+    <p class="sub" style="margin:0; color:#92400e;">
+      Question changes here only take effect in live assessments once this app
+      process restarts. In local/dev mode (debug on) that happens automatically
+      within a second or two of saving. In production, redeploy or restart the
+      app after importing.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Excel</h2>
+    <p class="sub">
+      Export the ownership questions, per-dimension tool questions, and all scored
+      questions to review or edit offline, then import the filled-in copy back in.
+      Dimension structure — name, icon, weight, whether N/A is allowed — is not
+      editable via Excel (those columns are reference-only); only question wording,
+      hints, and answer options are. A bad row blocks the whole import so the file
+      is never left half-updated — every problem is listed below, naming the sheet
+      and row to fix.
+    </p>
+    <div class="excel-actions" style="margin-top:1rem;">
+      <a href="{{ url_for('admin_questions_export') }}" class="excel-btn excel-btn-export">Export to Excel</a>
+      <form method="POST" action="{{ url_for('admin_questions_import') }}" enctype="multipart/form-data" class="import-form">
+        <input type="file" name="file" accept=".xlsx" required>
+        <button type="submit" class="excel-btn excel-btn-import">Import from Excel</button>
+      </form>
+    </div>
+
+    {% if import_result %}
+      {% if import_result.errors %}
+      <div class="error-box" style="margin-top:1rem;">
+        <strong>{{ import_result.errors|length }} problem{{ 's' if import_result.errors|length != 1 }} found — nothing was changed</strong>
+        <ul style="margin:6px 0 0; padding-left:18px;">
+          {% for e in import_result.errors %}<li>{{ e }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% else %}
+      <div class="success-box" style="margin-top:1rem;">
+        {% if import_result.diff %}
+          Import complete &mdash; changes:
+          <ul style="margin:6px 0 0; padding-left:18px;">
+            {% for line in import_result.diff %}<li>{{ line }}</li>{% endfor %}
+          </ul>
+        {% else %}
+          Import complete &mdash; no changes (the workbook matched what was already there).
+        {% endif %}
+      </div>
+      {% endif %}
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Current question counts</h2>
+    <table>
+      <thead><tr><th>Dimension</th><th>Weight</th><th>Questions</th></tr></thead>
+      <tbody>
+        {% for d in dimensions %}
+        <tr><td>{{ d.icon }} {{ d.name }}</td><td>{{ d.weight }}%</td><td>{{ counts[d.id] }}</td></tr>
+        {% endfor %}
+        <tr><td><strong>Total</strong></td><td></td><td><strong>{{ counts.total }}</strong></td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>

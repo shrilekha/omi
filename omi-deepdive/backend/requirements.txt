@@ -3,3 +3,4 @@ python-dotenv>=1.0
 pymysql>=1.1
 gunicorn>=21.0
 requests>=2.31
+openpyxl>=3.1
