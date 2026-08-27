@@ -1,0 +1,5 @@
+<nav class="tab-nav">
+  <a href="{{ url_for('admin_questions') }}" {% if active == 'questions' %}class="active"{% endif %}>Questions</a>
+  <a href="{{ url_for('admin_reports') }}" {% if active == 'reports' %}class="active"{% endif %}>Reports</a>
+  <a href="{{ url_for('admin_users_page') }}" {% if active == 'users' %}class="active"{% endif %}>Manage users</a>
+</nav>

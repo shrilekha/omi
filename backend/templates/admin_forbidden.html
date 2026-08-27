@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OMI — Not authorized</title>
+<link rel="stylesheet" href="{{ url_for('admin_static', filename='admin.css') }}">
+</head>
+<body>
+<div class="wrap narrow">
+  <section class="card center">
+    <span class="badge">OMI &middot; admin</span>
+    <h1>Not authorized</h1>
+    <p class="sub">
+      {% if session.admin_email %}{{ session.admin_email }} is{% else %}Your account is{% endif %}
+      signed in, but doesn't have a role that can access this page.
+    </p>
+    <p class="sub">Required role: {{ required_roles|join(' or ') }}.</p>
+    <p class="sub"><a href="{{ url_for('admin_logout') }}">Log out</a></p>
+  </section>
+</div>
+</body>
+</html>

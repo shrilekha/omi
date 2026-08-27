@@ -35,7 +35,15 @@ CREATE TABLE IF NOT EXISTS submissions (
     comp_score   REAL,
     overall_score REAL,
     maturity_band TEXT
-)
+);
+
+CREATE TABLE IF NOT EXISTS admin_users (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    email       TEXT NOT NULL UNIQUE,
+    role        TEXT NOT NULL,
+    is_active   INTEGER NOT NULL DEFAULT 1,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 _ANSWER_COLS = [
@@ -72,7 +80,7 @@ def _placeholder():
 def init_db():
     if ENV != 'production':
         conn = _get_conn()
-        conn.execute(_CREATE_SQLITE)
+        conn.executescript(_CREATE_SQLITE)
         existing_cols = {row[1] for row in conn.execute('PRAGMA table_info(submissions)')}
         if 'tools' in existing_cols and 'domain_tools' not in existing_cols:
             conn.execute('ALTER TABLE submissions RENAME COLUMN tools TO domain_tools')
@@ -130,3 +138,90 @@ def save_submission(data):
             conn.commit()
     finally:
         conn.close()
+
+
+def _fetchone_dict(conn, sql, params):
+    ph = _placeholder()
+    sql = sql.replace('?', ph) if ENV == 'production' else sql
+    if ENV == 'production':
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            row = cur.fetchone()
+        return row
+    else:
+        cur = conn.execute(sql, params)
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def _fetchall_dict(conn, sql, params):
+    ph = _placeholder()
+    sql = sql.replace('?', ph) if ENV == 'production' else sql
+    if ENV == 'production':
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+        return list(rows)
+    else:
+        cur = conn.execute(sql, params)
+        rows = cur.fetchall()
+        return [dict(r) for r in rows]
+
+
+def _execute(sql, params):
+    ph = _placeholder()
+    sql = sql.replace('?', ph) if ENV == 'production' else sql
+    conn = _get_conn()
+    try:
+        if ENV == 'production':
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+            conn.commit()
+        else:
+            conn.execute(sql, params)
+            conn.commit()
+    finally:
+        conn.close()
+
+
+# ─── Admin users (internal RBAC) ───────────────────────────────────────────────
+# Distinct from ADMIN_KEY (a shared password, no per-user identity) and from
+# Google OAuth (identity) — a verified Google identity with no active row here,
+# and not covered by INITIAL_ADMIN_EMAILS at bootstrap, cannot reach any /admin
+# route that requires a specific role. In ADMIN_KEY mode there's no per-user
+# identity to check a role against, so require_role() falls back to full access.
+
+def get_admin_user(email):
+    conn = _get_conn()
+    try:
+        return _fetchone_dict(
+            conn, "SELECT * FROM admin_users WHERE email = ? AND is_active = 1", (email,)
+        )
+    finally:
+        conn.close()
+
+
+def list_admin_users():
+    conn = _get_conn()
+    try:
+        return _fetchall_dict(conn, "SELECT * FROM admin_users ORDER BY created_at", ())
+    finally:
+        conn.close()
+
+
+def upsert_admin_user(email, role):
+    conn = _get_conn()
+    try:
+        existing = _fetchone_dict(conn, "SELECT id FROM admin_users WHERE email = ?", (email,))
+    finally:
+        conn.close()
+    if existing:
+        _execute("UPDATE admin_users SET role = ?, is_active = 1 WHERE email = ?", (role, email))
+    else:
+        _execute(
+            "INSERT INTO admin_users (email, role, is_active) VALUES (?, ?, 1)", (email, role)
+        )
+
+
+def deactivate_admin_user(email):
+    _execute("UPDATE admin_users SET is_active = 0 WHERE email = ?", (email,))

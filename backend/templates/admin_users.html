@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMI — Manage Users</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('admin_static', filename='admin.css') }}">
+</head>
+<body>
+<div class="wrap">
+  <div class="page-header">
+    <div>
+      <span class="badge">OMI &middot; admin</span>
+      <h1>Manage users</h1>
+      <p class="sub">
+        {% if session.admin_email %}Signed in as {{ session.admin_email }}{% else %}Signed in with the shared admin key{% endif %}
+      </p>
+    </div>
+    <a href="{{ url_for('admin_logout') }}" class="logout-link">Log out</a>
+  </div>
+
+  {% include 'admin_nav.html' %}
+
+  {% if not oauth_enabled %}
+  <section class="card" style="border-color:#fda29b;">
+    <p class="sub" style="color:#b42318; margin:0;">
+      Google OAuth isn't configured yet — roles below have no effect until it is,
+      since password-mode login has no per-user identity to check a role against.
+      See .env.example for setup. Anyone with the shared admin key currently has
+      full access to every admin page.
+    </p>
+  </section>
+  {% endif %}
+
+  {% if error %}
+  <section class="card" style="border-color:#fda29b;">
+    <p class="sub" style="color:#b42318; margin:0;">{{ error }}</p>
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <h2>Add or update a user</h2>
+    <form method="POST">
+      <input type="hidden" name="action" value="add">
+      <div class="grid2">
+        <label>Google email
+          <input type="email" name="email" required placeholder="name@vunetsystems.com">
+        </label>
+        <label>Role
+          <select name="role" required>
+            {% for r in roles %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+      <button type="submit" class="submit">Save</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Current users</h2>
+    {% if users %}
+    <table>
+      <thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Added</th><th></th></tr></thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.email }}</td>
+          <td>{{ u.role }}</td>
+          <td>{{ 'Active' if u.is_active else 'Deactivated' }}</td>
+          <td>{{ u.created_at }}</td>
+          <td>
+            {% if u.is_active %}
+            <form method="POST" onsubmit="return confirm('Deactivate {{ u.email }}? They will lose all internal access immediately.');">
+              <input type="hidden" name="action" value="deactivate">
+              <input type="hidden" name="email" value="{{ u.email }}">
+              <button type="submit" class="btn-danger">Deactivate</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="sub">No users added yet — anyone in INITIAL_ADMIN_EMAILS becomes an admin on first Google sign-in.</p>
+    {% endif %}
+  </section>
+</div>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMI — Reports</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('admin_static', filename='admin.css') }}">
+</head>
+<body>
+<div class="wrap">
+  <div class="page-header">
+    <div>
+      <span class="badge">OMI &middot; admin</span>
+      <h1>Submission reports</h1>
+      <p class="sub">
+        Aggregated across respondents only — never a single respondent's identity.
+        Every figure below is shown with its sample size (n); nothing is hidden for
+        being a small sample, so check n before treating a number as reliable.
+      </p>
+    </div>
+    <a href="{{ url_for('admin_logout') }}" class="logout-link">Log out</a>
+  </div>
+
+  {% include 'admin_nav.html' %}
+
+  <form method="GET" class="filters-form">
+    <div class="filters" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:1.25rem;">
+      <label style="margin:0;">Sector
+        <select name="sector" onchange="this.form.submit()" style="margin:0;">
+          <option value="">All sectors</option>
+          {% for s in filter_options.sector %}
+          <option value="{{ s }}" {% if filters.sector == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="margin:0;">Country
+        <select name="country" onchange="this.form.submit()" style="margin:0;">
+          <option value="">All countries</option>
+          {% for c in filter_options.country %}
+          <option value="{{ c }}" {% if filters.country == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="margin:0;">Revenue band
+        <select name="revenue_band" onchange="this.form.submit()" style="margin:0;">
+          <option value="">All revenue bands</option>
+          {% for r in filter_options.revenue_band %}
+          <option value="{{ r }}" {% if filters.revenue_band == r %}selected{% endif %}>{{ r }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="margin:0;">From
+        <input type="date" name="date_from" value="{{ filters.date_from }}" onchange="this.form.submit()" style="margin:0;">
+      </label>
+      <label style="margin:0;">To
+        <input type="date" name="date_to" value="{{ filters.date_to }}" onchange="this.form.submit()" style="margin:0;">
+      </label>
+      {% if filters.sector or filters.country or filters.revenue_band or filters.date_from or filters.date_to %}
+      <a href="{{ url_for('admin_reports') }}" class="logout-link">Clear filters</a>
+      {% endif %}
+    </div>
+  </form>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div>
+        <h2 style="margin-bottom:2px;">Sample size</h2>
+        <p class="sub" style="margin:0;">{{ data.n }} submission{{ 's' if data.n != 1 }} match the current filters.</p>
+      </div>
+      <div class="excel-actions">
+        <a href="{{ url_for('admin_reports_export', **filters) }}" class="excel-btn excel-btn-export">Export to Excel</a>
+        <a href="{{ url_for('admin_reports_print', **filters) }}" class="excel-btn excel-btn-import" target="_blank">Open printable report</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Maturity scores</h2>
+    {% if data.n %}
+    <table>
+      <thead><tr><th>Domain</th><th>Mean</th><th>Median</th><th>n</th></tr></thead>
+      <tbody>
+        {% for col, stats in data.scores.items() %}
+        <tr>
+          <td>{{ stats.label }}</td>
+          <td>{{ stats.mean if stats.mean is not none else '—' }}</td>
+          <td>{{ stats.median if stats.median is not none else '—' }}</td>
+          <td>{{ stats.n }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">No submissions match these filters.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Maturity band distribution</h2>
+    {% if data.maturity_bands %}
+    <table>
+      <thead><tr><th>Band</th><th>Count</th></tr></thead>
+      <tbody>
+        {% for band, count in data.maturity_bands.items() %}
+        <tr><td>{{ band }}</td><td>{{ count }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">No submissions match these filters.</p>
+    {% endif %}
+  </div>
+</div>
+</body>
+</html>

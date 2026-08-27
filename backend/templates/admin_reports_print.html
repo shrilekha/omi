@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMI Observability Maturity Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', -apple-system, sans-serif; color: #0f1923; background: #f9fafb;
+    margin: 0; padding: 2rem 1.5rem 4rem;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  .cover {
+    background: #0f1923; color: #fff; border-radius: 16px; padding: 2.5rem 2.25rem;
+    margin-bottom: 2rem;
+  }
+  .kicker {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: rgba(255,255,255,0.6); margin: 0 0 10px;
+  }
+  h1 {
+    font-family: 'DM Serif Display', serif; font-weight: 400; font-size: 2rem;
+    margin: 0 0 10px; color: #fff;
+  }
+  .sub { color: rgba(255,255,255,0.7); font-size: 14px; margin: 4px 0; }
+  .filters-list { list-style: none; padding: 0; margin: 1rem 0 0; font-size: 13px; color: rgba(255,255,255,0.85); }
+  .filters-list li { margin-bottom: 2px; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem; }
+  .card h2 { font-size: 1rem; margin: 0 0 1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f0f0f0; }
+  th { color: #6b7280; font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .print-btn {
+    background: #C60675; color: #fff; border: none; border-radius: 8px; padding: 10px 22px;
+    font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 1.5rem;
+  }
+  .print-btn:hover { background: #9c0560; }
+  .n-note { color: #9ca3af; font-size: 12px; margin: 0.5rem 0 0; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .no-print { display: none !important; }
+    .cover { border-radius: 0; }
+    .card { border: 1px solid #ccc; break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <button class="print-btn no-print" onclick="window.print()">Print / Save as PDF</button>
+
+  <div class="cover">
+    <p class="kicker">Observability Maturity Index &middot; OMI</p>
+    <h1>Industry Maturity Report</h1>
+    <p class="sub">Aggregated from {{ data.n }} respondent{{ 's' if data.n != 1 }}. No individual respondent's answers, identity, or contact details are included anywhere in this report.</p>
+    <ul class="filters-list">
+      <li>Sector: {{ filters.sector or 'All' }}</li>
+      <li>Country: {{ filters.country or 'All' }}</li>
+      <li>Revenue band: {{ filters.revenue_band or 'All' }}</li>
+      <li>Date range: {{ filters.date_from or 'earliest' }} &ndash; {{ filters.date_to or 'latest' }}</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Maturity scores</h2>
+    {% if data.n %}
+    <table>
+      <thead><tr><th>Domain</th><th>Mean</th><th>Median</th><th>n</th></tr></thead>
+      <tbody>
+        {% for col, stats in data.scores.items() %}
+        <tr>
+          <td>{{ stats.label }}</td>
+          <td>{{ stats.mean if stats.mean is not none else '—' }}</td>
+          <td>{{ stats.median if stats.median is not none else '—' }}</td>
+          <td>{{ stats.n }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="n-note">n = number of respondents with a scored answer for that domain (not every respondent answers every domain).</p>
+    {% else %}
+    <p>No submissions match these filters.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Maturity band distribution</h2>
+    {% if data.maturity_bands %}
+    <table>
+      <thead><tr><th>Band</th><th>Count</th></tr></thead>
+      <tbody>
+        {% for band, count in data.maturity_bands.items() %}
+        <tr><td>{{ band }}</td><td>{{ count }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p>No submissions match these filters.</p>
+    {% endif %}
+  </div>
+</div>
+</body>
+</html>

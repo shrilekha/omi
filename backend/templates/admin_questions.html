@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMI — Questions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('admin_static', filename='admin.css') }}">
+</head>
+<body>
+<div class="wrap">
+  <div class="page-header">
+    <div>
+      <span class="badge">OMI &middot; admin</span>
+      <h1>Assessment questions</h1>
+      <p class="sub">
+        {% if session.admin_email %}Signed in as {{ session.admin_email }}{% else %}Signed in with the shared admin key{% endif %}
+      </p>
+    </div>
+    <a href="{{ url_for('admin_logout') }}" class="logout-link">Log out</a>
+  </div>
+
+  {% include 'admin_nav.html' %}
+
+  <div class="card">
+    <h2>Excel</h2>
+    <p class="sub">
+      Export every question (all sector/country variants) to review or edit offline,
+      then import the filled-in copy back in. Only the "Txn Observability",
+      "Compliance &amp; Audit", and "App, Infra &amp; Log (shared)" sheets are read on
+      import &mdash; "All questions (combined)" is a read-only view for scanning
+      everything at once. A bad row blocks the whole import (nothing is written), so
+      questions.js is never left half-updated &mdash; every problem is listed below,
+      naming the sheet and row to fix.
+    </p>
+    <div class="excel-actions" style="margin-top:1rem;">
+      <a href="{{ url_for('admin_questions_export') }}" class="excel-btn excel-btn-export">Export to Excel</a>
+      <form method="POST" action="{{ url_for('admin_questions_import') }}" enctype="multipart/form-data" class="import-form">
+        <input type="file" name="file" accept=".xlsx" required>
+        <button type="submit" class="excel-btn excel-btn-import">Import from Excel</button>
+      </form>
+    </div>
+
+    {% if import_result %}
+      {% if import_result.errors %}
+      <div class="error-box" style="margin-top:1rem;">
+        <strong>{{ import_result.errors|length }} problem{{ 's' if import_result.errors|length != 1 }} found — nothing was changed</strong>
+        <ul style="margin:6px 0 0; padding-left:18px;">
+          {% for e in import_result.errors %}<li>{{ e }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% else %}
+      <div class="success-box" style="margin-top:1rem;">
+        {% if import_result.diff %}
+          Import complete &mdash; changes:
+          <ul style="margin:6px 0 0; padding-left:18px;">
+            {% for line in import_result.diff %}<li>{{ line }}</li>{% endfor %}
+          </ul>
+        {% else %}
+          Import complete &mdash; no changes (the workbook matched what was already there).
+        {% endif %}
+      </div>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Current question counts</h2>
+    <table>
+      <thead><tr><th>Domain</th><th>Questions</th></tr></thead>
+      <tbody>
+        <tr><td>Business &amp; Transaction Observability (all variants)</td><td>{{ counts.txn }}</td></tr>
+        <tr><td>Application Performance</td><td>{{ counts.app }}</td></tr>
+        <tr><td>Infrastructure &amp; Network</td><td>{{ counts.infra }}</td></tr>
+        <tr><td>Log Management &amp; Data Lake</td><td>{{ counts.log }}</td></tr>
+        <tr><td>Compliance &amp; Audit Readiness (all variants)</td><td>{{ counts.comp }}</td></tr>
+        <tr><td><strong>Total</strong></td><td><strong>{{ counts.total }}</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>
