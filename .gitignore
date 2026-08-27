@@ -13,6 +13,11 @@ __pycache__/
 venv/
 env/
 
+# Accidentally-redirected dev-server output (`python app.py > out.log 2>&1`)
+app_stdout.txt
+app_stderr.txt
+*.bak
+
 # OS
 .DS_Store
 Thumbs.db

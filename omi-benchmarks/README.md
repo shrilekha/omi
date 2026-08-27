@@ -130,6 +130,19 @@ itself uses `fetch(..., {keepalive: true})` so it can finish even mid
 page-unload — without both of those, a value typed right before navigating
 away could be silently lost.
 
+**Bulk edits, offline** — "Export to Excel" on `/admin/benchmarks` downloads
+the same full grid (every metric, every sector×geo×revenue-band row) as a
+workbook; "Import from Excel" uploads an edited copy back in. Rows are
+matched by natural key (metric, sector, geo, revenue_band) and upserted, so
+re-importing the same file twice just updates the same rows again rather
+than duplicating them — safe to run more than once. Unlike the questions
+importers in the other two apps, this one is **not** all-or-nothing: each row
+is validated independently, so one bad row (unrecognized sector/geo/revenue
+label, non-numeric value) is reported without blocking the valid rows in the
+same file. The same logic backs `export_benchmarks_to_excel.py` /
+`import_benchmarks_from_excel.py` in `backend/` for anyone who'd rather
+script it or run it from a server directly.
+
 ## Read API — for OMI's and omi-deepdive's backends only
 
 ```
@@ -210,12 +223,15 @@ ongoing) data-entry task, not something the plumbing does for you.
 ```
 omi-benchmarks/
 ├── backend/
-│   ├── app.py          # Flask app — admin auth, the grid CRUD, the read API, health
-│   ├── db.py            # DB abstraction + find_benchmark() fallback ladder
-│   ├── constants.py      # Canonical metric/sector/geo/revenue-band lists
+│   ├── app.py                        # Flask app — admin auth, the grid CRUD, Excel routes, read API, health
+│   ├── db.py                          # DB abstraction + find_benchmark() fallback ladder
+│   ├── constants.py                   # Canonical metric/sector/geo/revenue-band lists
+│   ├── benchmarks_excel.py            # Shared Excel <-> benchmarks-table logic (CLI scripts + admin UI)
+│   ├── export_benchmarks_to_excel.py  # CLI: dump the full grid to Benchmarks_Export.xlsx
+│   ├── import_benchmarks_from_excel.py  # CLI: upsert a filled-in workbook back into the DB
 │   ├── templates/
 │   │   ├── admin_login.html
-│   │   └── admin_list.html   # the grid — this is the only authenticated page
+│   │   └── admin_list.html   # the grid + Excel export/import — the only authenticated page
 │   └── static/style.css
 ├── database/
 │   └── schema.sql        # MySQL schema for production

@@ -274,7 +274,8 @@ omi-deepdive/
 │   ├── app.py          # Flask app — all routes (assessment, report, admin, OAuth, RBAC, health)
 │   ├── db.py            # DB abstraction (SQLite in dev, MySQL in prod)
 │   ├── scoring.py        # Per-dimension + overall scoring, N/A renormalization, maturity band
-│   ├── questions.py       # The question bank — edit here to add/reword questions or dimensions
+│   ├── questions.py       # The question bank — structure here; content editable via /admin/questions too
+│   ├── questions_excel.py # Shared Excel <-> questions.py logic (merge, not replace — see below)
 │   ├── constants.py       # Sector/geo/revenue-band lists for org creation (peer benchmarks)
 │   ├── templates/
 │   │   ├── assess.html          # Per-app assessment form (pre-fills from prior submission)
@@ -286,7 +287,8 @@ omi-deepdive/
 │   │   ├── admin_users.html      # Manage admin_users (admin-only)
 │   │   ├── admin_new.html        # Create-organization tab
 │   │   ├── admin_orgs.html       # Existing-organizations tab (paginated)
-│   │   └── admin_org.html        # One organization's links + reset actions
+│   │   ├── admin_org.html        # One organization's links + reset actions
+│   │   └── admin_questions.html  # Excel export/import for the question bank
 │   └── static/style.css
 ├── database/
 │   └── schema.sql        # MySQL schema for production
@@ -296,11 +298,29 @@ omi-deepdive/
 
 ## Editing the question bank
 
-All question content, dimension weights, and the N/A rule for Real User
-Monitoring live in `backend/questions.py`. Weights across all dimensions must
-sum to 100 (enforced by an assertion at import time). No other file needs to
-change to add, remove, or reword a question — answers are stored as JSON keyed
-by question ID, so the database schema doesn't need to change either.
+Dimension **structure** — count, `id`, `name`, `icon`, `weight`, the N/A rule
+for Real User Monitoring — lives only in `backend/questions.py` and is a code
+change; weights across all dimensions must sum to 100 (enforced by an
+assertion at import time).
+
+**Content** — question wording, hints, answer options, and the tool-question
+text — is editable either by hand in `questions.py`, or via
+**`/admin/questions`** in the browser: export to Excel, edit offline, import
+back in. Import is a *merge*, not a file replace — `questions_excel.py` keeps
+every structural field from the current file and only overwrites question/
+tool-question content from the workbook, so a spreadsheet edit can never
+accidentally break the weight-sum invariant or rename a dimension. All-or-
+nothing: a bad row (missing text/option, wrong dimension id) blocks the whole
+import, naming the sheet and row to fix.
+
+One caveat either way: a change only reaches **live assessments** once this
+process restarts and re-imports `questions.py` — in local/dev mode
+(`ENV=development`, debug reloader on) that happens automatically within a
+second or two of saving; in production, redeploy or restart the app after
+editing.
+
+Answers are stored as JSON keyed by question ID either way, so the database
+schema never needs to change for a content edit.
 
 ## Maturity bands
 
