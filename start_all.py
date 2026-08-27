@@ -2,7 +2,9 @@
 Starts all three OMI services (OMI itself, omi-deepdive, omi-benchmarks) with
 one command, for local development. Before launching, creates any missing
 .env from that service's .env.example (never touches one that already
-exists) — so a fresh checkout is runnable with nothing more than:
+exists) and installs each service's requirements.txt — so a fresh checkout
+(or a Codespace after a requirements.txt change) is runnable with nothing
+more than:
 
     python start_all.py
 
@@ -49,6 +51,25 @@ def ensure_env(name, app_root):
         return
     shutil.copy(example_path, env_path)
     print(f'[{name}] created .env from .env.example (edit it before relying on this for anything real)')
+
+
+def install_requirements(name, backend_dir):
+    """pip install -r requirements.txt for one service, using this same
+    interpreter so it lands wherever `python app.py` will actually run from.
+    Idempotent — pip no-ops quickly when everything's already satisfied, so
+    this is cheap to run on every launch, not just the first."""
+    req_path = os.path.join(backend_dir, 'requirements.txt')
+    if not os.path.exists(req_path):
+        return True
+    print(f'[{name}] installing dependencies...')
+    result = subprocess.run(
+        [sys.executable, '-m', 'pip', 'install', '-q', '-r', req_path],
+        cwd=backend_dir,
+    )
+    if result.returncode != 0:
+        print(f'[{name}] pip install failed (exit {result.returncode}) — not starting this service')
+        return False
+    return True
 
 
 def stream_output(proc, name, color):
@@ -106,9 +127,18 @@ def main():
     for name, app_root, _ in SERVICES:
         ensure_env(name, app_root)
 
-    print('\nStarting all three services — Ctrl+C to stop all of them.\n')
+    print('\nInstalling dependencies...\n')
+    to_start = [
+        (name, backend_dir) for name, _, backend_dir in SERVICES
+        if install_requirements(name, backend_dir)
+    ]
+    if not to_start:
+        print('\nNo services could be started — every pip install failed.')
+        return
+
+    print('\nStarting service(s) — Ctrl+C to stop all of them.\n')
     running = []
-    for (name, _, backend_dir), color in zip(SERVICES, COLORS):
+    for (name, backend_dir), color in zip(to_start, COLORS):
         proc = start(name, backend_dir)
         running.append((name, proc))
         threading.Thread(target=stream_output, args=(proc, name, color), daemon=True).start()
