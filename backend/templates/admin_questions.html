@@ -27,12 +27,13 @@
     <h2>Excel</h2>
     <p class="sub">
       Export every question (all sector/country variants) to review or edit offline,
-      then import the filled-in copy back in. Only the "Txn Observability",
-      "Compliance &amp; Audit", and "App, Infra &amp; Log (shared)" sheets are read on
-      import &mdash; "All questions (combined)" is a read-only view for scanning
-      everything at once. A bad row blocks the whole import (nothing is written), so
-      questions.js is never left half-updated &mdash; every problem is listed below,
-      naming the sheet and row to fix.
+      then import the filled-in copy back in. Every question lives in exactly one of
+      the three sheets &mdash; "Txn Observability", "Compliance &amp; Audit", or
+      "App, Infra &amp; Log (shared)" &mdash; there's no separate "everything at once"
+      view, so there's no risk of editing a copy that quietly isn't the one read on
+      import. A bad row blocks the whole import (nothing is written), so questions.js
+      is never left half-updated &mdash; every problem is listed below, naming the
+      sheet and row to fix.
     </p>
     <div class="excel-actions" style="margin-top:1rem;">
       <a href="{{ url_for('admin_questions_export') }}" class="excel-btn excel-btn-export">Export to Excel</a>

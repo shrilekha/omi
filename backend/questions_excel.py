@@ -23,7 +23,6 @@ QUESTIONS_JS = os.path.join(ROOT, 'frontend', 'questions.js')
 SHEET_TXN = 'Txn Observability'
 SHEET_COMP = 'Compliance & Audit'
 SHEET_SHARED = 'App, Infra & Log (shared)'
-SHEET_COMBINED = 'All questions (combined)'
 
 DOMAIN_TO_SHARED_VAR = {
     'Application Performance': 'appQuestions',
@@ -202,9 +201,11 @@ def build_sheet(ws, rows):
 
 
 def build_workbook():
-    """The full question set as a Workbook — one sheet per domain grouping,
-    plus a combined view for reviewers (see SHEET_COMBINED — not read on
-    import, sheets 1-3 are the source of truth)."""
+    """The full question set as a Workbook — one sheet per domain grouping.
+    Deliberately no combined/"everything at once" sheet: every question
+    exists in exactly one place, so there's no way to edit a copy that
+    silently isn't the one read on import (a real "which tab is the real
+    one?" data-loss risk an earlier version of this workbook had)."""
     txn_variants, comp_variants, app_q, infra_q, log_q = load_questions()
 
     wb = Workbook()
@@ -233,22 +234,6 @@ def build_workbook():
     for q in log_q:
         rows.append(question_row('Log Management & Data Lake', 'all sectors', q))
     build_sheet(ws3, rows)
-
-    ws4 = wb.create_sheet(SHEET_COMBINED)
-    rows = []
-    for variant, questions in txn_variants.items():
-        for q in questions:
-            rows.append(question_row('Business & Transaction Observability', variant, q))
-    for q in app_q:
-        rows.append(question_row('Application Performance', 'all sectors', q))
-    for q in infra_q:
-        rows.append(question_row('Infrastructure & Network', 'all sectors', q))
-    for q in log_q:
-        rows.append(question_row('Log Management & Data Lake', 'all sectors', q))
-    for variant, questions in comp_variants.items():
-        for q in questions:
-            rows.append(question_row('Compliance & Audit Readiness', variant, q))
-    build_sheet(ws4, rows)
 
     return wb
 

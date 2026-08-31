@@ -24,9 +24,9 @@ OUTPUT_XLSX = os.path.join(ROOT, 'OMI_Questions_Review.xlsx')
 
 def main():
     wb = build_workbook()
-    row_total = wb[wb.sheetnames[-1]].max_row - 1  # combined sheet
+    row_total = sum(ws.max_row - 1 for ws in wb.worksheets)
     wb.save(OUTPUT_XLSX)
-    print(f'Wrote {row_total} rows (combined sheet) to {OUTPUT_XLSX}')
+    print(f'Wrote {len(wb.worksheets)} sheets ({row_total} rows total) to {OUTPUT_XLSX}')
 
 
 if __name__ == '__main__':

@@ -8,9 +8,9 @@ in it, not just data.
 
 Reads sheets 'Txn Observability', 'Compliance & Audit', and
 'App, Infra & Log (shared)' — the same three the export script builds them from.
-'All questions (combined)' is a derived convenience view for reviewers and is
-intentionally NOT read here, so there's exactly one place edits can be made that
-takes effect.
+Every question lives in exactly one of these three sheets — deliberately no
+"everything at once" combined sheet — so there's exactly one place to edit
+each question, and no risk of an edit landing in a copy that isn't read here.
 
 All-or-nothing: if any row fails validation, nothing is written — the run prints
 every problem it found instead. The same import is also available from the
